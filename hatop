@@ -1,0 +1,508 @@
+#!/usr/bin/env python
+# Copyright (C) 2010 John Feuerstein <john@feurix.com>
+
+import curses
+import re
+
+MAXLINES_CONTENT = 100
+
+HAPROXY_INFO_RE = {
+'software_name':    re.compile('^Name:\s*(?P<value>\S+)'),
+'software_version': re.compile('^Version:\s*(?P<value>\S+)'),
+'software_release': re.compile('^Release_date:\s*(?P<value>\S+)'),
+'nproc':            re.compile('^Nbproc:\s*(?P<value>\d+)'),
+'procn':            re.compile('^Process_num:\s*(?P<value>\d+)'),
+'pid':              re.compile('^Pid:\s*(?P<value>\d+)'),
+'uptime':           re.compile('^Uptime:\s*(?P<value>[\S ]+)$'),
+'maxconn':          re.compile('^Maxconn:\s*(?P<value>\d+)'),
+'curconn':          re.compile('^CurrConns:\s*(?P<value>\d+)'),
+'maxpipes':         re.compile('^Maxpipes:\s*(?P<value>\d+)'),
+'curpipes':         re.compile('^PipesUsed:\s*(?P<value>\d+)'),
+'tasks':            re.compile('^Tasks:\s*(?P<value>\d+)'),
+'runqueue':         re.compile('^Run_queue:\s*(?P<value>\d+)'),
+'node':             re.compile('^node:\s*(?P<value>\S+)'),
+'description':      re.compile('^description:\s*(?P<value>\S+)'),
+}
+
+HAPROXY_STAT_CSV = [
+# Note: Fields must be listed in correct order, as described in:
+# http://haproxy.1wt.eu/download/1.4/doc/configuration.txt [9.1]
+
+# Field             Description
+
+'pxname',           # proxy name
+'svname',           # service name (FRONTEND / BACKEND / name or server name)
+'qcur',             # current queued requests
+'qmax',             # max queued requests
+'scur',             # current sessions
+'smax',             # max sessions
+'slim',             # sessions limit
+'stot',             # total sessions
+'bin',              # bytes in
+'bout',             # bytes out
+'dreq',             # denied requests
+'dresp',            # denied responses
+'ereq',             # request errors
+'econ',             # connection errors
+'eresp',            # response errors (among which srv_abrt)
+'wretr',            # retries (warning)
+'wredis',           # redispatches (warning)
+'status',           # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+'weight',           # server weight (server), total weight (backend)
+'act',              # server is active (server), number of active servers (backend)
+'bck',              # server is backup (server), number of backup servers (backend)
+'chkfail',          # number of failed checks
+'chkdown',          # number of UP->DOWN transitions
+'lastchg',          # last status change (in seconds)
+'downtime',         # total downtime (in seconds)
+'qlimit',           # queue limit
+'pid',              # process id (0 for first instance, 1 for second, ...)
+'iid',              # unique proxy id
+'sid',              # service id (unique inside a proxy)
+'throttle',         # warm up status
+'lbtot',            # total number of times a server was selected
+'tracked',          # id of proxy/server if tracking is enabled
+'type',             # (0=frontend, 1=backend, 2=server, 3=socket)
+'rate',             # number of sessions per second over last elapsed second
+'rate_lim',         # limit on new sessions per second
+'rate_max',         # max number of new sessions per second
+'check_status',     # status of last health check, one of:
+                    #   UNK     -> unknown
+                    #   INI     -> initializing
+                    #   SOCKERR -> socket error
+                    #   L4OK    -> check passed on layer 4, no upper layers testing enabled
+                    #   L4TMOUT -> layer 1-4 timeout
+                    #   L4CON   -> layer 1-4 connection problem, for example
+                    #              "Connection refused" (tcp rst) or "No route to host" (icmp)
+                    #   L6OK    -> check passed on layer 6
+                    #   L6TOUT  -> layer 6 (SSL) timeout
+                    #   L6RSP   -> layer 6 invalid response - protocol error
+                    #   L7OK    -> check passed on layer 7
+                    #   L7OKC   -> check conditionally passed on layer 7, for example 404 with
+                    #              disable-on-404
+                    #   L7TOUT  -> layer 7 (HTTP/SMTP) timeout
+                    #   L7RSP   -> layer 7 invalid response - protocol error
+                    #   L7STS   -> layer 7 response error, for example HTTP 5xx
+'check_code',       # layer5-7 code, if available
+'check_duration',   # time in ms took to finish last health check
+'hrsp_1xx',         # http responses with 1xx code
+'hrsp_2xx',         # http responses with 2xx code
+'hrsp_3xx',         # http responses with 3xx code
+'hrsp_4xx',         # http responses with 4xx code
+'hrsp_5xx',         # http responses with 5xx code
+'hrsp_other',       # http responses with other codes (protocol error)
+'hanafail',         # failed health checks details
+'req_rate',         # HTTP requests per second over last elapsed second
+'req_rate_max',     # max number of HTTP requests per second observed
+'req_tot',          # total number of HTTP requests received
+'cli_abrt',         # number of data transfers aborted by the client
+'srv_abrt',         # number of data transfers aborted by the server (inc. in eresp)
+]
+HAPROXY_STAT_NUMFIELDS = len(HAPROXY_STAT_CSV)
+
+# All (possible) big numeric values on the screen are humanized using the
+# metric prefix set, while everything byte related is using binary prefixes.
+PREFIX_BINARY = {
+        1024:    'K',
+        1024**2: 'M',
+        1024**3: 'G',
+        1024**4: 'T',
+        1024**5: 'P',
+}
+PREFIX_METRIC = {
+        1000:    'k',
+        1000**2: 'M',
+        1000**3: 'G',
+        1000**4: 'T',
+        1000**5: 'P',
+}
+
+class HAProxyStatusSocket:
+
+    def __init__(self, path):
+        self.path = path
+
+        from socket import socket, AF_UNIX, SOCK_STREAM
+        self._socket = socket(AF_UNIX, SOCK_STREAM)
+        self._socket.connect(self.path)
+        self._file = self._socket.makefile(mode='r')
+
+    def __iter__(self):
+        return self._file
+
+    def send(self, data):
+        self._socket.send('%s\n' % data)
+
+    def iterlines(self, command):
+        self.send(command)
+        return self
+
+    def get_stat(self):
+        stats = {}
+        for line in self.iterlines('show stat'):
+            if line.count(',') != HAPROXY_STAT_NUMFIELDS:
+                continue # unknown format
+            if line.startswith('#'):
+                continue # comment
+
+            stat = line.split(',')
+            stat = map(lambda s: s.strip(), stat)
+
+            pxname = stat[HAPROXY_STAT_CSV.index('pxname')]
+            try:
+                proxy = stats[pxname]
+            except KeyError:
+                proxy = HAProxyStat(pxname)
+                stats[pxname] = proxy
+            proxy.record(stat)
+        return stats
+
+    def get_info(self):
+        info = {}
+        for line in self.iterlines('show info'):
+            line = line.strip()
+            if not line:
+                continue
+            for key, regexp in HAPROXY_INFO_RE.iteritems():
+                match = regexp.match(line)
+                if match:
+                    try:
+                        info[key] = int(match.group('value'), 10)
+                    except:
+                        info[key] = match.group('value')
+                    break
+        return info
+
+class HAProxyStat:
+
+    def __init__(self, name):
+        self.pxname = name
+        self.services = {}
+
+    def record(self, stat):
+        svname = stat[HAPROXY_STAT_CSV.index('svname')]
+        try:
+            service = self.services[svname]
+        except KeyError:
+            service = HAProxyServiceStat(self, svname)
+            self.services[svname] = service
+
+        for field in HAPROXY_STAT_CSV:
+            if field == 'pxname' or field == 'svname':
+                continue
+            setattr(service, field, stat[HAPROXY_STAT_CSV.index(field)])
+
+class HAProxyServiceStat:
+
+    def __init__(self, proxy, name):
+        self.proxy = proxy
+        self.svname = name
+
+class StatusBar:
+
+    PREPEND = '['
+    APPEND = ']'
+    USEDCHAR = '|'
+    FREECHAR = ' '
+
+    def __init__(self, width=60, min=0, max=100, status=True):
+        self.width = width
+        self.curval = min
+        self.minval = min
+        self.maxval = max
+        self.status = status
+        self.prepend = '['
+        self.append = ']'
+        self.usedchar = '|'
+        self.freechar = ' '
+
+    def update_cur(self, value):
+        value = min(self.maxval, value)
+        value = max(self.minval, value)
+        self.curval = value
+
+    def update_max(self, value):
+        assert value > self.minval
+        self.maxval = value
+
+    def __str__(self):
+        if self.status:
+            status = '%d/%d' % (self.curval, self.maxval)
+
+        space = self.width - len(self.prepend) - len(self.append)
+        span = self.maxval - self.minval
+
+        if self.status:
+            assert self.width > (len(status) + 10)
+        else:
+            assert self.width > 10
+
+        used = min(float(self.curval) / float(span), 1.0) if span else 0.0
+        free = 1.0 - used
+
+        # 100% equals full bar width, ignoring status text within the bar
+        bar  = self.prepend
+        bar += self.usedchar * int(space * used)
+        bar += self.freechar * int(space * free)
+        if self.status:
+            bar  = bar[:(self.width - len(status) - len(self.append))]
+            bar += status
+        bar += self.append
+
+        return bar
+
+def humanize(value, si=False):
+    if not value:
+        return ''
+    value = long(value, 10)
+    p = PREFIX_METRIC if si else PREFIX_BINARY
+    for minval, prefix in sorted(p.items(), reverse=True):
+        if (value/minval):
+            return '%.1f%s' % (value/minval, prefix)
+    return str(value)
+
+def trim(l, s):
+    return s if len(s) <= l else '...'
+
+def draw_help(screen):
+    screen.addstr(0, 0, 'TODO: help...')
+
+def draw_line(screen, ypos, xpos, text=None, attr=curses.A_REVERSE):
+    ymax, xmax = screen.getmaxyx()
+    screen.hline(ypos, 0, ' ', xmax, attr)
+    if text:
+        screen.addstr(ypos, xpos, text, attr)
+
+def draw_header(screen, info, sb_conn, sb_pipe):
+    screen.addstr(2, 2,
+            '%s Version: %s  (released: %s)' % (
+                info['software_name'],
+                info['software_version'],
+                info['software_release'],
+            ), curses.A_BOLD)
+    screen.addstr(2, 56, 'PID: %d (proc %d)' %
+            (info['pid'], info['procn']), curses.A_BOLD)
+
+    screen.addstr(4, 2,  '       Node: %s (uptime %s)' % (
+        info['node'] if info['node'] else 'unknown', info['uptime']))
+
+    screen.addstr(6, 2,  '      Pipes: %s'  % sb_pipe)
+    screen.addstr(7, 2,  'Connections: %s'  % sb_conn)
+    screen.addstr(9, 2,  '  Processes: %3d' % info['nproc'])
+    screen.addstr(9, 28,       'Tasks: %8d' % info['tasks'])
+    screen.addstr(9, 56,   'Run Queue: %8d' % info['runqueue'])
+
+def draw_columns(screen, mode):
+    if mode == 0:       # HELP
+        draw_line(screen, 11, 0, 'hatop online help',
+                curses.A_REVERSE | curses.A_BOLD)
+    elif mode == 1:     # STATUS
+        draw_line(screen, 11, 0,
+                'NAME       WEIGHT STATUS   ACT BCK   '
+                'QCUR   QMAX   SCUR   SMAX   SLIM     STOT',
+                curses.A_REVERSE | curses.A_BOLD)
+    elif mode == 2:     # TRAFFIC
+        draw_line(screen, 11, 0,
+                'NAME       WEIGHT STATUS   ACT BCK   '
+                'SCUR   RATE   RLIM   RMAX    BIN     BOUT',
+                curses.A_REVERSE | curses.A_BOLD)
+
+def draw_footer(screen, mode):
+    ymax, xmax = screen.getmaxyx()
+    ypos = ymax-1
+    draw_line(screen, ymax-1, 0)
+    attr_active = curses.A_BOLD
+    attr_inactive = curses.A_BOLD | curses.A_REVERSE
+
+    attr = attr_active if mode == 1 else attr_inactive
+    screen.addstr(ypos,  2, ' 1-STATUS ', attr)
+    attr = attr_active if mode == 2 else attr_inactive
+    screen.addstr(ypos, 16, ' 2-TRAFFIC ', attr)
+
+    screen.addstr(ypos, 49, 'UP/DOWN=SCROLL H=HELP Q=QUIT', attr_inactive)
+
+def draw_service_stat(screen, ypos, service):
+    screen.addstr(ypos, 0,
+            '%s %s %s %s %s %s %s %s %s %s %s' % (
+                trim(10, service.svname).ljust(10),
+                trim(6, service.weight).rjust(6),
+                trim(8, service.status).ljust(8),
+                trim(3, service.act).rjust(3),
+                trim(3, service.bck).rjust(3),
+                trim(6, humanize(service.qcur, si=True)).rjust(6),
+                trim(6, humanize(service.qmax, si=True)).rjust(6),
+                trim(6, humanize(service.scur, si=True)).rjust(6),
+                trim(6, humanize(service.smax, si=True)).rjust(6),
+                trim(6, humanize(service.slim, si=True)).rjust(6),
+                trim(8, humanize(service.stot, si=True)).rjust(8),
+            ))
+
+def draw_service_traf(screen, ypos, service):
+    screen.addstr(ypos, 0,
+            '%s %s %s %s %s %s %s %s %s %s %s' % (
+                trim(10, service.svname).ljust(10),
+                trim(6, service.weight).rjust(6),
+                trim(8, service.status).ljust(8),
+                trim(3, service.act).rjust(3),
+                trim(3, service.bck).rjust(3),
+                trim(6, humanize(service.scur, si=True)).rjust(6),
+                trim(6, humanize(service.rate, si=True)).rjust(6),
+                trim(6, humanize(service.rate_lim, si=True)).rjust(6),
+                trim(6, humanize(service.rate_max, si=True)).rjust(6),
+                trim(6, humanize(service.bin)).rjust(6),
+                trim(8, humanize(service.bout)).rjust(8),
+            ))
+
+def draw_pad(screen, stat, callback):
+    ypos = 0
+    for proxy in stat.itervalues():
+        if ypos > MAXLINES_CONTENT:
+            break
+
+        screen.addstr(ypos, 0, '>>> %s' % proxy.pxname, curses.A_BOLD)
+        ypos += 1
+
+        try:
+            frontend = proxy.services.pop('FRONTEND')
+        except:
+            frontend = None
+
+        try:
+            backend = proxy.services.pop('BACKEND')
+        except:
+            backend = None
+
+        if frontend:
+            if ypos > MAXLINES_CONTENT:
+                break
+            callback(screen, ypos, frontend)
+            ypos += 1
+
+        for service in proxy.services.itervalues():
+            if ypos > MAXLINES_CONTENT:
+                break
+            callback(screen, ypos, service)
+            ypos += 1
+
+        if backend:
+            if ypos >= MAXLINES_CONTENT:
+                break
+            callback(screen, ypos, backend)
+            ypos += 1
+        ypos += 1
+
+def draw_stat(*args, **kwargs):
+    kwargs.update({'callback': draw_service_stat})
+    return draw_pad(*args, **kwargs)
+
+def draw_traf(*args, **kwargs):
+    kwargs.update({'callback': draw_service_traf})
+    return draw_pad(*args, **kwargs)
+
+def update_info(socket, sb_conn, sb_pipe):
+    data = socket.get_info()
+    sb_conn.update_max(data['maxconn'] or 100000)
+    sb_conn.update_cur(data['curconn'])
+    sb_pipe.update_max(data['maxpipes'] or 1000)
+    sb_pipe.update_cur(data['curpipes'])
+    return data
+
+def update_stat(socket):
+    return socket.get_stat()
+
+def mainloop(screen):
+    from time import sleep, ctime
+
+    # Initialize curses and screen
+    curses.curs_set(0)
+    curses.use_default_colors()
+    screen.move(0, 0)
+    screen.nodelay(1)
+    screen.idlok(1)
+
+    # Initialize the scrollable content pad
+    ymax, xmax = screen.getmaxyx()
+    pad = curses.newpad(MAXLINES_CONTENT+2, xmax)
+    padpos = 0
+
+    # Prepare backend and status bars
+    socket = HAProxyStatusSocket('/var/run/haproxy/haproxy.sock')
+    sb_conn = StatusBar()
+    sb_pipe = StatusBar()
+
+    mode = 1                # start in status mode
+    scan = 1.0 / 100.0      # sleep time of each iteration in seconds
+    update = 1.0 / scan     # query socket and redraw screen every second
+
+    hatop_version = 'hatop version 0.0.6'
+
+    i = 0
+    while 1:
+        ymax, xmax = screen.getmaxyx()
+        if xmax < 78 or ymax < 20:
+            raise RuntimeError('Terminal too small, need at least 78x20')
+
+        # Query the socket for data, parse it, and redraw the screen
+        if i == 0:
+            screen.clear()
+
+            # Top line with hatop version and current date
+            draw_line(screen, 0, 0)
+            attr = curses.A_REVERSE | curses.A_BOLD
+            screen.addstr(0, 0, ctime().rjust(78), attr)
+            screen.addstr(0, 1, hatop_version, attr)
+
+            # Info header, column and footer display
+            data = update_info(socket, sb_conn, sb_pipe)
+            draw_header(screen, data, sb_conn, sb_pipe)
+            draw_columns(screen, mode)
+            draw_footer(screen, mode)
+            screen.refresh()
+
+            # Mode specific display on the pad
+            pad.clear()
+            data = update_stat(socket)
+
+            if mode == 0:
+                draw_help(pad)
+            elif mode == 1:
+                draw_stat(pad, data)
+            elif mode == 2:
+                draw_traf(pad, data)
+
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+
+            i = update
+
+        c = screen.getch()
+
+        if 0 < c < 256:
+            c = chr(c)
+            if c in 'qQ':
+                break
+            if c in ' ':
+                i = 0
+                continue
+            elif c in 'Hh?':
+                i = mode = 0
+                continue
+            elif c in '1':
+                i, mode = 0, 1
+                continue
+            elif c in '2':
+                i, mode = 0, 2
+                continue
+        elif c == curses.KEY_UP and padpos > 0:
+            padpos -= 1
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+        elif c == curses.KEY_DOWN and padpos < (MAXLINES_CONTENT-ymax):
+            padpos += 1
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+
+        sleep(scan)
+        i -= 1
+
+if __name__ == '__main__':
+    curses.wrapper(mainloop)
+
+# vim: et sw=4 tw=78
