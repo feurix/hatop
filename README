@@ -1,0 +1,10 @@
+HATop is an interactive ncurses client for the HAProxy stats socket
+===================================================================
+
+It's appearance is similar to top(1). HATop supports various modes for
+detailed statistical display of all configured proxies and their servers
+in near realtime. In addition, it features a simple command line client
+for the unix socket. This way the admin may control the given haproxy
+instance (change server weight, put servers into maintenance mode, ...)
+in a single place and monitor the results immediately.
+
