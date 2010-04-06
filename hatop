@@ -121,6 +121,11 @@ PREFIX_METRIC = {
         1000**4: 'T',
         1000**5: 'P',
 }
+PREFIX_TIME = {
+        60:      'm',
+        60*60:   'h',
+        60*60*24:'d',
+}
 
 class HAProxyStatusSocket:
 
@@ -265,10 +270,18 @@ class StatusBar:
 
         return bar
 
-def humanize(value, si=False):
+def humanize(value, si=False, time=False):
     if not value:
         return ''
     value = long(value, 10)
+
+    if time:
+        p = PREFIX_TIME
+        for minval, prefix in sorted(p.items(), reverse=True):
+            if (value/minval):
+                return '%d%s' % (value/minval, prefix)
+        return '%ss' % value
+
     p = PREFIX_METRIC if si else PREFIX_BINARY
     for minval, prefix in sorted(p.items(), reverse=True):
         if (value/minval):
@@ -276,7 +289,13 @@ def humanize(value, si=False):
     return str(value)
 
 def trim(l, s):
-    return s if len(s) <= l else '...'
+    if len(s) <= l:
+        return s
+    if l == 1:
+        return s[0]
+    if l >= 3:
+        return '..%s' % s[-(l-2):]
+    return '#'
 
 def draw_help(screen):
     screen.addstr(0, 0, 'TODO: help...')
@@ -312,59 +331,115 @@ def draw_columns(screen, mode):
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 1:     # STATUS
         draw_line(screen, 11, 0,
-                'NAME       WEIGHT STATUS   ACT BCK   '
-                'QCUR   QMAX   SCUR   SMAX   SLIM     STOT',
+                'NAME     WEIGHT ST   CHK      ACT BCK  '
+                'QCUR   QMAX   SCUR   SMAX   SLIM   STOT',
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 2:     # TRAFFIC
         draw_line(screen, 11, 0,
-                'NAME       WEIGHT STATUS   ACT BCK   '
-                'SCUR   RATE   RLIM   RMAX    BIN     BOUT',
+                'NAME     WEIGHT ST        LBTOT   '
+                'RATE   RLIM   RMAX          BIN         BOUT',
                 curses.A_REVERSE | curses.A_BOLD)
+    elif mode == 3:     # HTTP
+        draw_line(screen, 11, 0,
+                'NAME     WEIGHT ST    RATE    RMAX    RTOT   '
+                '1xx   2xx   3xx   4xx   5xx   ?xx',
+                curses.A_REVERSE | curses.A_BOLD)
+    elif mode == 4:     # ERRORS
+        draw_line(screen, 11, 0,
+                'NAME     WEIGHT ST   CHK        CF  CD  CL '
+                'ECONN  EREQ  ERSP  DREQ  DRSP  DOWN',
+                curses.A_REVERSE | curses.A_BOLD)
+    elif mode == 5:     # CLI
+        draw_line(screen, 11, 0)
+        screen.addstr(11, 1, 'command line interface',
+                curses.A_REVERSE | curses.A_BOLD)
+        screen.addstr(11, 51, "enter 'help' for more info",
+                curses.A_REVERSE)
 
 def draw_footer(screen, mode):
     ymax, xmax = screen.getmaxyx()
     ypos = ymax-1
-    draw_line(screen, ymax-1, 0)
+    draw_line(screen, ypos, 0)
     attr_active = curses.A_BOLD
     attr_inactive = curses.A_BOLD | curses.A_REVERSE
 
     attr = attr_active if mode == 1 else attr_inactive
-    screen.addstr(ypos,  2, ' 1-STATUS ', attr)
+    screen.addstr(ypos,  0, ' 1-STATUS ', attr)
     attr = attr_active if mode == 2 else attr_inactive
-    screen.addstr(ypos, 16, ' 2-TRAFFIC ', attr)
+    screen.addstr(ypos, 10, ' 2-TRAFFIC ', attr)
+    attr = attr_active if mode == 3 else attr_inactive
+    screen.addstr(ypos, 21, ' 3-HTTP ', attr)
+    attr = attr_active if mode == 4 else attr_inactive
+    screen.addstr(ypos, 29, ' 4-ERRORS ', attr)
+    attr = attr_active if mode == 5 else attr_inactive
+    screen.addstr(ypos, 39, ' 5-CLI ', attr)
 
     screen.addstr(ypos, 49, 'UP/DOWN=SCROLL H=HELP Q=QUIT', attr_inactive)
 
 def draw_service_stat(screen, ypos, service):
     screen.addstr(ypos, 0,
-            '%s %s %s %s %s %s %s %s %s %s %s' % (
+            '%s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
-                trim(6, service.weight).rjust(6),
-                trim(8, service.status).ljust(8),
+                trim(4, service.weight).rjust(4),
+                trim(4, service.status).ljust(4),
+                trim(8, service.check_status).ljust(8),
                 trim(3, service.act).rjust(3),
                 trim(3, service.bck).rjust(3),
-                trim(6, humanize(service.qcur, si=True)).rjust(6),
+                trim(5, humanize(service.qcur, si=True)).rjust(5),
                 trim(6, humanize(service.qmax, si=True)).rjust(6),
                 trim(6, humanize(service.scur, si=True)).rjust(6),
                 trim(6, humanize(service.smax, si=True)).rjust(6),
                 trim(6, humanize(service.slim, si=True)).rjust(6),
-                trim(8, humanize(service.stot, si=True)).rjust(8),
+                trim(6, humanize(service.stot, si=True)).rjust(6),
             ))
 
 def draw_service_traf(screen, ypos, service):
     screen.addstr(ypos, 0,
-            '%s %s %s %s %s %s %s %s %s %s %s' % (
+            '%s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
-                trim(6, service.weight).rjust(6),
-                trim(8, service.status).ljust(8),
-                trim(3, service.act).rjust(3),
-                trim(3, service.bck).rjust(3),
-                trim(6, humanize(service.scur, si=True)).rjust(6),
+                trim(4, service.weight).rjust(4),
+                trim(4, service.status).ljust(4),
+                trim(10, humanize(service.lbtot, si=True)).rjust(10),
                 trim(6, humanize(service.rate, si=True)).rjust(6),
                 trim(6, humanize(service.rate_lim, si=True)).rjust(6),
                 trim(6, humanize(service.rate_max, si=True)).rjust(6),
-                trim(6, humanize(service.bin)).rjust(6),
-                trim(8, humanize(service.bout)).rjust(8),
+                trim(12, humanize(service.bin)).rjust(12),
+                trim(12, humanize(service.bout)).rjust(12),
+            ))
+
+def draw_service_http(screen, ypos, service):
+    screen.addstr(ypos, 0,
+            '%s %s %s %s %s %s %s %s %s %s %s %s' % (
+                trim(10, service.svname).ljust(10),
+                trim(4, service.weight).rjust(4),
+                trim(4, service.status).ljust(4),
+                trim(6, humanize(service.req_rate, si=True)).rjust(6),
+                trim(6, humanize(service.req_rate_max, si=True)).rjust(6),
+                trim(7, humanize(service.req_tot, si=True)).rjust(7),
+                trim(5, humanize(service.hrsp_1xx, si=True)).rjust(5),
+                trim(5, humanize(service.hrsp_2xx, si=True)).rjust(5),
+                trim(5, humanize(service.hrsp_3xx, si=True)).rjust(5),
+                trim(5, humanize(service.hrsp_4xx, si=True)).rjust(5),
+                trim(5, humanize(service.hrsp_5xx, si=True)).rjust(5),
+                trim(5, humanize(service.hrsp_other, si=True)).rjust(5),
+            ))
+
+def draw_service_err(screen, ypos, service):
+    screen.addstr(ypos, 0,
+            '%s %s %s %s %s %s %s %s %s %s %s %s %s' % (
+                trim(10, service.svname).ljust(10),
+                trim(4, service.weight).rjust(4),
+                trim(4, service.status).ljust(4),
+                trim(8, service.check_status).ljust(8),
+                trim(4, humanize(service.chkfail, si=True)).rjust(4),
+                trim(3, humanize(service.chkdown, si=True)).rjust(3),
+                trim(3, humanize(service.lastchg, time=True)).rjust(3),
+                trim(5, humanize(service.econ, si=True)).rjust(5),
+                trim(5, humanize(service.ereq, si=True)).rjust(5),
+                trim(5, humanize(service.eresp, si=True)).rjust(5),
+                trim(5, humanize(service.dreq, si=True)).rjust(5),
+                trim(5, humanize(service.dresp, si=True)).rjust(5),
+                trim(5, humanize(service.downtime, time=True)).rjust(5),
             ))
 
 def draw_pad(screen, stat, callback):
@@ -413,6 +488,14 @@ def draw_traf(*args, **kwargs):
     kwargs.update({'callback': draw_service_traf})
     return draw_pad(*args, **kwargs)
 
+def draw_http(*args, **kwargs):
+    kwargs.update({'callback': draw_service_http})
+    return draw_pad(*args, **kwargs)
+
+def draw_err(*args, **kwargs):
+    kwargs.update({'callback': draw_service_err})
+    return draw_pad(*args, **kwargs)
+
 def update_info(socket, sb_conn, sb_pipe):
     data = socket.get_info()
     sb_conn.update_max(data['maxconn'] or 100000)
@@ -423,6 +506,9 @@ def update_info(socket, sb_conn, sb_pipe):
 
 def update_stat(socket):
     return socket.get_stat()
+
+def run_cli(pad):
+    pass # TODO
 
 def mainloop(screen):
     from time import sleep, ctime
@@ -475,7 +561,8 @@ def mainloop(screen):
 
             # Mode specific display on the pad
             pad.clear()
-            data = update_stat(socket)
+            if str(mode) in '1234':
+                data = update_stat(socket)
 
             if mode == 0:
                 draw_help(pad)
@@ -483,6 +570,12 @@ def mainloop(screen):
                 draw_stat(pad, data)
             elif mode == 2:
                 draw_traf(pad, data)
+            elif mode == 3:
+                draw_http(pad, data)
+            elif mode == 4:
+                draw_err(pad, data)
+            elif mode == 5:
+                run_cli(pad)
 
             pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
 
@@ -506,6 +599,15 @@ def mainloop(screen):
             elif c in '2':
                 i, mode = 0, 2
                 continue
+            elif c in '3':
+                i, mode = 0, 3
+                continue
+            elif c in '4':
+                i, mode = 0, 4
+                continue
+            elif c in '5':
+                i, mode = 0, 5
+                continue
         elif c == curses.KEY_UP and padpos > 0:
             padpos -= 1
             pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
@@ -519,4 +621,4 @@ def mainloop(screen):
 if __name__ == '__main__':
     curses.wrapper(mainloop)
 
-# vim: et sw=4 tw=78
+# vim: et sw=4 tw=78 fen fdn=1 fdm=indent fdl=0
