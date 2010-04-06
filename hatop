@@ -398,6 +398,9 @@ class StatusBar:
 
         return bar
 
+def log(msg):
+    sys.stderr.write('%s\n' % msg)
+
 def humanize(value, si=False, time=False):
     if not value:
         return ''
