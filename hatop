@@ -579,11 +579,11 @@ def draw_service_err(screen, ypos, service):
 
 def draw_pad(screen, stat, callback):
     ypos = 0
-    for proxy in stat.itervalues():
+    for pxname, proxy in sorted(stat.items()):
         if ypos > MAXLINES_CONTENT:
             break
 
-        screen.addstr(ypos, 0, '>>> %s' % proxy.pxname, curses.A_BOLD)
+        screen.addstr(ypos, 0, '>>> %s' % pxname, curses.A_BOLD)
         ypos += 1
 
         try:
@@ -602,7 +602,7 @@ def draw_pad(screen, stat, callback):
             callback(screen, ypos, frontend)
             ypos += 1
 
-        for service in proxy.services.itervalues():
+        for svname, service in sorted(proxy.services.items()):
             if ypos > MAXLINES_CONTENT:
                 break
             callback(screen, ypos, service)
