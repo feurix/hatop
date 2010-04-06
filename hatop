@@ -1,5 +1,38 @@
 #!/usr/bin/env python
+#
 # Copyright (C) 2010 John Feuerstein <john@feurix.com>
+#
+#   Project URL: http://feurix.org/projects/hatop/
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Library General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+'''
+HATop is an interactive ncurses client for the HAProxy stats socket
+===================================================================
+
+It's appearance is similar to top(1). HATop supports various modes for
+detailed statistical display of all configured proxies and their servers
+in near realtime. In addition, it features a simple command line client
+for the unix socket. This way the admin may control the given haproxy
+instance (change server weight, put servers into maintenance mode, ...)
+in a single place and monitor the results immediately.
+'''
+__author__    = 'John Feuerstein <john@feurix.com>'
+__copyright__ = 'Copyright (C) 2010 John Feuerstein <john@feurix.com>'
+__license__   = 'GPLv3'
+__version__   = '0.1.0'
 
 import curses
 import re
@@ -9,6 +42,7 @@ HAPROXY_CLI_BUFSIZE = 4096
 HAPROXY_CLI_TIMEOUT = 60
 HAPROXY_CLI_PROMPT = '> '
 
+# Upper limit of content lines in the scrolling area
 MAXLINES_CONTENT = 100
 
 HAPROXY_INFO_RE = {
@@ -534,7 +568,7 @@ def mainloop(screen):
     scan = 1.0 / 100.0      # sleep time of each iteration in seconds
     update = 1.0 / scan     # query socket and redraw screen every second
 
-    hatop_version = 'hatop version 0.0.6'
+    hatop_version = 'hatop version %s' % __version__
 
     i = 0
     while 1:
@@ -617,6 +651,8 @@ def mainloop(screen):
 
         sleep(scan)
         i -= 1
+
+    socket.close()
 
 if __name__ == '__main__':
     curses.wrapper(mainloop)
