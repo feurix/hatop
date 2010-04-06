@@ -41,8 +41,8 @@ In multiple modes:
 
 NAME        name of the proxy and his services
 WEIGHT      configured weight of the service
-ST          service status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-CHK         status of last health check (see status reference below)
+STATUS      service status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+CHECK       status of last health check (see status reference below)
 
 In STATUS mode:
 
