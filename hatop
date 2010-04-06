@@ -4,6 +4,11 @@
 import curses
 import re
 
+# Settings of interactive command session over the unix-socket
+HAPROXY_CLI_BUFSIZE = 4096
+HAPROXY_CLI_TIMEOUT = 60
+HAPROXY_CLI_PROMPT = '> '
+
 MAXLINES_CONTENT = 100
 
 HAPROXY_INFO_RE = {
@@ -124,18 +129,32 @@ class HAProxyStatusSocket:
 
         from socket import socket, AF_UNIX, SOCK_STREAM
         self._socket = socket(AF_UNIX, SOCK_STREAM)
-        self._socket.connect(self.path)
-        self._file = self._socket.makefile(mode='r')
 
-    def __iter__(self):
-        return self._file
+        # Initialize interactive socket connection
+        self.connect()
+        self.send('prompt')
+        self.recv()
+        self.send('set timeout cli %d' % HAPROXY_CLI_TIMEOUT)
+        self.recv()
+
+    def connect(self):
+        self._socket.connect(self.path)
+
+    def close(self):
+        self._socket.close()
 
     def send(self, data):
-        self._socket.send('%s\n' % data)
+        self._socket.sendall('%s\n' % data)
+
+    def recv(self):
+        data = self._socket.recv(HAPROXY_CLI_BUFSIZE)
+        while not data.endswith(HAPROXY_CLI_PROMPT):
+            data += self._socket.recv(HAPROXY_CLI_BUFSIZE)
+        return data[:(-len(HAPROXY_CLI_PROMPT))]
 
     def iterlines(self, command):
         self.send(command)
-        return self
+        return iter(self.recv().strip().splitlines())
 
     def get_stat(self):
         stats = {}
