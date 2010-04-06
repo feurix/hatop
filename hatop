@@ -464,22 +464,22 @@ def draw_columns(screen, mode):
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 1:     # STATUS
         draw_line(screen, 11, 0,
-                'NAME     WEIGHT ST   CHK      ACT BCK  '
-                'QCUR   QMAX   SCUR   SMAX   SLIM   STOT',
+                'NAME     WEIGHT STATUS CHECK   ACT BCK  '
+                'QCUR  QMAX   SCUR   SMAX   SLIM   STOT',
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 2:     # TRAFFIC
         draw_line(screen, 11, 0,
-                'NAME     WEIGHT ST        LBTOT   '
+                'NAME     WEIGHT STATUS    LBTOT   '
                 'RATE   RLIM   RMAX          BIN         BOUT',
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 3:     # HTTP
         draw_line(screen, 11, 0,
-                'NAME     WEIGHT ST    RATE    RMAX    RTOT   '
+                'NAME     WEIGHT STATUS  RATE  RMAX    RTOT   '
                 '1xx   2xx   3xx   4xx   5xx   ?xx',
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 4:     # ERRORS
         draw_line(screen, 11, 0,
-                'NAME     WEIGHT ST   CHK        CF  CD  CL '
+                'NAME     WEIGHT STATUS CHECK    CF  CD  CL '
                 'ECONN  EREQ  ERSP  DREQ  DRSP  DOWN',
                 curses.A_REVERSE | curses.A_BOLD)
     elif mode == 5:     # CLI
@@ -516,12 +516,12 @@ def draw_service_stat(screen, ypos, service):
             '%s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(4, service.status).ljust(4),
-                trim(8, service.check_status).ljust(8),
+                trim(6, service.status).ljust(6),
+                trim(7, service.check_status).ljust(7),
                 trim(3, service.act).rjust(3),
                 trim(3, service.bck).rjust(3),
                 trim(5, humanize(service.qcur, si=True)).rjust(5),
-                trim(6, humanize(service.qmax, si=True)).rjust(6),
+                trim(5, humanize(service.qmax, si=True)).rjust(5),
                 trim(6, humanize(service.scur, si=True)).rjust(6),
                 trim(6, humanize(service.smax, si=True)).rjust(6),
                 trim(6, humanize(service.slim, si=True)).rjust(6),
@@ -533,8 +533,8 @@ def draw_service_traf(screen, ypos, service):
             '%s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(4, service.status).ljust(4),
-                trim(10, humanize(service.lbtot, si=True)).rjust(10),
+                trim(6, service.status).ljust(6),
+                trim(8, humanize(service.lbtot, si=True)).rjust(8),
                 trim(6, humanize(service.rate, si=True)).rjust(6),
                 trim(6, humanize(service.rate_lim, si=True)).rjust(6),
                 trim(6, humanize(service.rate_max, si=True)).rjust(6),
@@ -547,9 +547,9 @@ def draw_service_http(screen, ypos, service):
             '%s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(4, service.status).ljust(4),
-                trim(6, humanize(service.req_rate, si=True)).rjust(6),
-                trim(6, humanize(service.req_rate_max, si=True)).rjust(6),
+                trim(6, service.status).ljust(6),
+                trim(5, humanize(service.req_rate, si=True)).rjust(5),
+                trim(5, humanize(service.req_rate_max, si=True)).rjust(5),
                 trim(7, humanize(service.req_tot, si=True)).rjust(7),
                 trim(5, humanize(service.hrsp_1xx, si=True)).rjust(5),
                 trim(5, humanize(service.hrsp_2xx, si=True)).rjust(5),
@@ -564,9 +564,9 @@ def draw_service_err(screen, ypos, service):
             '%s %s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(4, service.status).ljust(4),
-                trim(8, service.check_status).ljust(8),
-                trim(4, humanize(service.chkfail, si=True)).rjust(4),
+                trim(6, service.status).ljust(6),
+                trim(7, service.check_status).ljust(7),
+                trim(3, humanize(service.chkfail, si=True)).rjust(3),
                 trim(3, humanize(service.chkdown, si=True)).rjust(3),
                 trim(3, humanize(service.lastchg, time=True)).rjust(3),
                 trim(5, humanize(service.econ, si=True)).rjust(5),
