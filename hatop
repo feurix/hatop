@@ -124,10 +124,12 @@ L7RSP       layer 7 invalid response - protocol error
 L7STS       layer 7 response error, for example HTTP 5xx
 '''
 __author__    = 'John Feuerstein <john@feurix.com>'
-__copyright__ = 'Copyright (C) 2010 John Feuerstein <john@feurix.com>'
-__license__   = 'GPLv3'
-__version__   = '0.1.1'
+__copyright__ = 'Copyright (C) 2010 %s' % __author__
+__license__   = 'GNU GPLv3'
+__version__   = '0.2.0'
 
+import os
+import sys
 import curses
 import re
 
@@ -487,7 +489,7 @@ def draw_columns(screen, mode):
         screen.addstr(11, 51, "enter 'help' for more info",
                 curses.A_REVERSE)
 
-def draw_footer(screen, mode):
+def draw_footer(screen, mode, ro):
     ymax, xmax = screen.getmaxyx()
     ypos = ymax-1
     draw_line(screen, ypos, 0)
@@ -502,8 +504,10 @@ def draw_footer(screen, mode):
     screen.addstr(ypos, 21, ' 3-HTTP ', attr)
     attr = attr_active if mode == 4 else attr_inactive
     screen.addstr(ypos, 29, ' 4-ERRORS ', attr)
-    attr = attr_active if mode == 5 else attr_inactive
-    screen.addstr(ypos, 39, ' 5-CLI ', attr)
+
+    if not ro:
+        attr = attr_active if mode == 5 else attr_inactive
+        screen.addstr(ypos, 39, ' 5-CLI ', attr)
 
     screen.addstr(ypos, 49, 'UP/DOWN=SCROLL H=HELP Q=QUIT', attr_inactive)
 
@@ -641,7 +645,7 @@ def update_stat(socket):
 def run_cli(pad):
     pass # TODO
 
-def mainloop(screen):
+def mainloop(screen, socket, interval, mode, ro):
     from time import sleep, ctime
 
     # Initialize curses and screen
@@ -656,14 +660,14 @@ def mainloop(screen):
     pad = curses.newpad(MAXLINES_CONTENT+2, xmax)
     padpos = 0
 
-    # Prepare backend and status bars
-    socket = HAProxyStatusSocket('/var/run/haproxy/haproxy.sock')
+    # Prepare status bars
     sb_conn = StatusBar()
     sb_pipe = StatusBar()
 
-    mode = 1                # start in status mode
-    scan = 1.0 / 100.0      # sleep time of each iteration in seconds
-    update = 1.0 / scan     # query socket and redraw screen every second
+    # sleep time of each iteration in seconds
+    scan = 1.0 / 100.0
+    # query socket and redraw screen in the given interval
+    update = interval / scan
 
     hatop_version = 'hatop version %s' % __version__
 
@@ -687,7 +691,7 @@ def mainloop(screen):
             data = update_info(socket, sb_conn, sb_pipe)
             draw_header(screen, data, sb_conn, sb_pipe)
             draw_columns(screen, mode)
-            draw_footer(screen, mode)
+            draw_footer(screen, mode, ro)
             screen.refresh()
 
             # Mode specific display on the pad
@@ -736,7 +740,7 @@ def mainloop(screen):
             elif c in '4':
                 i, mode = 0, 4
                 continue
-            elif c in '5':
+            elif c in '5' and not ro:
                 i, mode = 0, 5
                 continue
         elif c == curses.KEY_UP and padpos > 0:
@@ -751,7 +755,44 @@ def mainloop(screen):
 
     socket.close()
 
-if __name__ == '__main__':
-    curses.wrapper(mainloop)
 
-# vim: et sw=4 tw=76 fen fdn=1 fdm=indent fdl=0
+if __name__ == '__main__':
+
+    from optparse import OptionParser
+
+    version  = 'hatop version %s' % __version__
+    usage    = 'Usage: %prog [options]'
+
+    parser = OptionParser(usage=usage, version=version)
+
+    parser.add_option('-s', '--unix-socket', type='str', dest='socket',
+            help='path to the haproxy unix socket (mandatory)')
+    parser.add_option('-n', '--read-only', action='store_true', dest='ro',
+            help='disable the cli and query for stats only')
+    parser.add_option('-i', '--update-interval', type='int', dest='interval',
+            help='update interval in seconds (1-30s, default: 1s)', default=1)
+    parser.add_option('-m', '--mode', type='int', dest='mode',
+            help='start in specific mode (1-5, default: 1)', default=1)
+
+    (opts, args) = parser.parse_args()
+
+    if not 0 < opts.interval < 31:
+        log('invalid update interval: %d' % opts.interval)
+        sys.exit(1)
+    if not 0 < opts.mode < 6:
+        log('invalid mode: %d' % opts.mode)
+        sys.exit(1)
+    if opts.ro and opts.mode == 5:
+        log('cli not available in read-only mode')
+        sys.exit(1)
+    if not opts.socket:
+        parser.print_help()
+        sys.exit(0)
+    if not os.access(opts.socket, os.R_OK | os.W_OK):
+        log('insufficient permissions for path %s' % opts.socket)
+        sys.exit(2)
+
+    socket = HAProxyStatusSocket(opts.socket)
+    curses.wrapper(mainloop, socket, opts.interval, opts.mode, opts.ro)
+
+# vim: et sw=4 tw=78 fdn=1 fdm=indent
