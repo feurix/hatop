@@ -200,11 +200,6 @@ class HAProxyServiceStat:
 
 class StatusBar:
 
-    PREPEND = '['
-    APPEND = ']'
-    USEDCHAR = '|'
-    FREECHAR = ' '
-
     def __init__(self, width=60, min=0, max=100, status=True):
         self.width = width
         self.curval = min
