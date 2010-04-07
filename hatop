@@ -126,7 +126,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.1'
+__version__   = '0.2.2'
 
 import os
 import sys
@@ -443,7 +443,7 @@ def draw_line(screen, ypos, xpos, text=None, attr=curses.A_REVERSE):
     if text:
         screen.addstr(ypos, xpos, text, attr)
 
-def draw_header(screen, info, sb_conn, sb_pipe):
+def draw_header(screen, info, stat, sb_conn, sb_pipe):
     screen.addstr(2, 2,
             '%s Version: %s  (released: %s)' % (
                 info['software_name'],
@@ -458,9 +458,19 @@ def draw_header(screen, info, sb_conn, sb_pipe):
 
     screen.addstr(6, 2,  '      Pipes: %s'  % sb_pipe)
     screen.addstr(7, 2,  'Connections: %s'  % sb_conn)
-    screen.addstr(9, 2,  '  Processes: %3d' % info['nproc'])
-    screen.addstr(9, 28,       'Tasks: %8d' % info['tasks'])
-    screen.addstr(9, 56,   'Run Queue: %8d' % info['runqueue'])
+
+    num_proxies = len(stat)
+    num_services = sum(len(proxy.services) for proxy in stat.itervalues())
+
+    screen.addstr(9, 2,
+            'Proc: %3d    Tasks: %5d    Queue: %5d    '
+            'Proxies: %3d   Services: %4d' % (
+                info['nproc'],
+                info['tasks'],
+                info['runqueue'],
+                num_proxies,
+                num_services,
+            ))
 
 def draw_columns(screen, mode):
     if mode == 0:       # HELP
@@ -688,7 +698,7 @@ def mainloop(screen, socket, interval, mode, ro):
         if i == 0:
             # Query the socket for new data and parse it
             data_info = update_info(socket, sb_conn, sb_pipe)
-            data_stat = update_stat(socket) if str(mode) in '1234' else {}
+            data_stat = update_stat(socket)
 
             screen.clear()
 
@@ -699,7 +709,7 @@ def mainloop(screen, socket, interval, mode, ro):
             screen.addstr(0, 1, hatop_version, attr)
 
             # Info header, column and footer display
-            draw_header(screen, data_info, sb_conn, sb_pipe)
+            draw_header(screen, data_info, data_stat, sb_conn, sb_pipe)
             draw_columns(screen, mode)
             draw_footer(screen, mode, ro)
 
