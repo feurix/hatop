@@ -430,6 +430,11 @@ def trim(l, s):
         return '..%s' % s[-(l-2):]
     return '#'
 
+def get_status(service):
+    if service.status == 'no check':
+        return ('-', 'none')
+    return (service.status, service.check_status)
+
 def draw_help(screen):
     screen.addstr(0, 0, __doc__)
 
@@ -512,12 +517,13 @@ def draw_footer(screen, mode, ro):
     screen.addstr(ypos, 49, 'UP/DOWN=SCROLL H=HELP Q=QUIT', attr_inactive)
 
 def draw_service_stat(screen, ypos, service):
+    status, check_status = get_status(service)
     screen.addstr(ypos, 0,
             '%s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(6, service.status).ljust(6),
-                trim(7, service.check_status).ljust(7),
+                trim(6, status).ljust(6),
+                trim(7, check_status).ljust(7),
                 trim(3, service.act).rjust(3),
                 trim(3, service.bck).rjust(3),
                 trim(5, humanize(service.qcur, si=True)).rjust(5),
@@ -529,11 +535,12 @@ def draw_service_stat(screen, ypos, service):
             ))
 
 def draw_service_traf(screen, ypos, service):
+    status, check_status = get_status(service)
     screen.addstr(ypos, 0,
             '%s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(6, service.status).ljust(6),
+                trim(6, status).ljust(6),
                 trim(8, humanize(service.lbtot, si=True)).rjust(8),
                 trim(6, humanize(service.rate, si=True)).rjust(6),
                 trim(6, humanize(service.rate_lim, si=True)).rjust(6),
@@ -543,11 +550,12 @@ def draw_service_traf(screen, ypos, service):
             ))
 
 def draw_service_http(screen, ypos, service):
+    status, check_status = get_status(service)
     screen.addstr(ypos, 0,
             '%s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(6, service.status).ljust(6),
+                trim(6, status).ljust(6),
                 trim(5, humanize(service.req_rate, si=True)).rjust(5),
                 trim(5, humanize(service.req_rate_max, si=True)).rjust(5),
                 trim(7, humanize(service.req_tot, si=True)).rjust(7),
@@ -560,12 +568,13 @@ def draw_service_http(screen, ypos, service):
             ))
 
 def draw_service_err(screen, ypos, service):
+    status, check_status = get_status(service)
     screen.addstr(ypos, 0,
             '%s %s %s %s %s %s %s %s %s %s %s %s %s' % (
                 trim(10, service.svname).ljust(10),
                 trim(4, service.weight).rjust(4),
-                trim(6, service.status).ljust(6),
-                trim(7, service.check_status).ljust(7),
+                trim(6, status).ljust(6),
+                trim(7, check_status).ljust(7),
                 trim(3, humanize(service.chkfail, si=True)).rjust(3),
                 trim(3, humanize(service.chkdown, si=True)).rjust(3),
                 trim(3, humanize(service.lastchg, time=True)).rjust(3),
