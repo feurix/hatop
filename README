@@ -33,9 +33,11 @@ Header reference:
 Node        configured name of the haproxy node
 Uptime      runtime since haproxy was initially started
 Pipes       pipes are currently used for kernel-based tcp slicing
-Processes   number of haproxy processes
+Procs       number of haproxy processes
 Tasks       number of actice process tasks
-Run Queue   number of queued process tasks
+Queue       number of queued process tasks (run queue)
+Proxies     number of configured proxies
+Services    number of configured services
 
 In multiple modes:
 

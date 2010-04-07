@@ -49,9 +49,11 @@ Header reference:
 Node        configured name of the haproxy node
 Uptime      runtime since haproxy was initially started
 Pipes       pipes are currently used for kernel-based tcp slicing
-Processes   number of haproxy processes
+Procs       number of haproxy processes
 Tasks       number of actice process tasks
-Run Queue   number of queued process tasks
+Queue       number of queued process tasks (run queue)
+Proxies     number of configured proxies
+Services    number of configured services
 
 In multiple modes:
 
@@ -126,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.2'
+__version__   = '0.2.3'
 
 import os
 import sys
@@ -463,7 +465,7 @@ def draw_header(screen, info, stat, sb_conn, sb_pipe):
     num_services = sum(len(proxy.services) for proxy in stat.itervalues())
 
     screen.addstr(9, 2,
-            'Proc: %3d    Tasks: %5d    Queue: %5d    '
+            'Procs: %3d   Tasks: %5d    Queue: %5d    '
             'Proxies: %3d   Services: %4d' % (
                 info['nproc'],
                 info['tasks'],
