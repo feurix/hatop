@@ -686,8 +686,11 @@ def mainloop(screen, socket, interval, mode, ro):
         if xmax < 78 or ymax < 20:
             raise RuntimeError('Terminal too small, need at least 78x20')
 
-        # Query the socket for data, parse it, and redraw the screen
         if i == 0:
+            # Query the socket for new data and parse it
+            data_info = update_info(socket, sb_conn, sb_pipe)
+            data_stat = update_stat(socket) if str(mode) in '1234' else {}
+
             screen.clear()
 
             # Top line with hatop version and current date
@@ -697,8 +700,7 @@ def mainloop(screen, socket, interval, mode, ro):
             screen.addstr(0, 1, hatop_version, attr)
 
             # Info header, column and footer display
-            data = update_info(socket, sb_conn, sb_pipe)
-            draw_header(screen, data, sb_conn, sb_pipe)
+            draw_header(screen, data_info, sb_conn, sb_pipe)
             draw_columns(screen, mode)
             draw_footer(screen, mode, ro)
 
@@ -707,19 +709,16 @@ def mainloop(screen, socket, interval, mode, ro):
             # Mode specific display on the pad
             pad.clear()
 
-            if str(mode) in '1234':
-                data = update_stat(socket)
-
             if mode == 0:
                 draw_help(pad)
             elif mode == 1:
-                draw_stat(pad, data)
+                draw_stat(pad, data_stat)
             elif mode == 2:
-                draw_traf(pad, data)
+                draw_traf(pad, data_stat)
             elif mode == 3:
-                draw_http(pad, data)
+                draw_http(pad, data_stat)
             elif mode == 4:
-                draw_err(pad, data)
+                draw_err(pad, data_stat)
             elif mode == 5:
                 run_cli(pad)
 
