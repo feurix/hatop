@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.3'
+__version__   = '0.2.4'
 
 import os
 import sys
@@ -769,6 +769,12 @@ def mainloop(screen, socket, interval, mode, ro):
             pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
         elif c == curses.KEY_DOWN and padpos < (MAXLINES_CONTENT-ymax):
             padpos += 1
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+        elif c == curses.KEY_PPAGE and padpos > 0:
+            padpos = max(0, padpos-10)
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+        elif c == curses.KEY_NPAGE and padpos < (MAXLINES_CONTENT-ymax-10):
+            padpos += 10
             pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
 
         sleep(scan)
