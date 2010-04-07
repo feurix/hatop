@@ -130,8 +130,8 @@ __version__   = '0.2.0'
 
 import os
 import sys
-import curses
 import re
+import curses
 
 # Settings of interactive command session over the unix-socket
 HAPROXY_CLI_BUFSIZE = 4096
@@ -759,7 +759,7 @@ if __name__ == '__main__':
     from optparse import OptionParser
 
     version  = 'hatop version %s' % __version__
-    usage    = 'Usage: %prog [options]'
+    usage    = 'Usage: hatop [options]'
 
     parser = OptionParser(usage=usage, version=version)
 
@@ -772,7 +772,7 @@ if __name__ == '__main__':
     parser.add_option('-m', '--mode', type='int', dest='mode',
             help='start in specific mode (1-5, default: 1)', default=1)
 
-    (opts, args) = parser.parse_args()
+    opts, args = parser.parse_args()
 
     if not 0 < opts.interval < 31:
         log('invalid update interval: %d' % opts.interval)
@@ -790,8 +790,14 @@ if __name__ == '__main__':
         log('insufficient permissions for path %s' % opts.socket)
         sys.exit(2)
 
-    socket = HAProxyStatusSocket(opts.socket)
-    curses.wrapper(mainloop, socket, opts.interval, opts.mode, opts.ro)
-    socket.close()
+    try:
+        socket = HAProxyStatusSocket(opts.socket)
+    except:
+        raise
+
+    try:
+        curses.wrapper(mainloop, socket, opts.interval, opts.mode, opts.ro)
+    finally:
+        socket.close()
 
 # vim: et sw=4 tw=78 fdn=1 fdm=indent
