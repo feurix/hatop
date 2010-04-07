@@ -692,10 +692,12 @@ def mainloop(screen, socket, interval, mode, ro):
             draw_header(screen, data, sb_conn, sb_pipe)
             draw_columns(screen, mode)
             draw_footer(screen, mode, ro)
+
             screen.refresh()
 
             # Mode specific display on the pad
             pad.clear()
+
             if str(mode) in '1234':
                 data = update_stat(socket)
 
@@ -725,22 +727,22 @@ def mainloop(screen, socket, interval, mode, ro):
             if c in ' ':
                 i = 0
                 continue
-            elif c in 'Hh?':
+            if c in 'Hh?':
                 i = mode = 0
                 continue
-            elif c in '1':
+            if c in '1':
                 i, mode = 0, 1
                 continue
-            elif c in '2':
+            if c in '2':
                 i, mode = 0, 2
                 continue
-            elif c in '3':
+            if c in '3':
                 i, mode = 0, 3
                 continue
-            elif c in '4':
+            if c in '4':
                 i, mode = 0, 4
                 continue
-            elif c in '5' and not ro:
+            if c in '5' and not ro:
                 i, mode = 0, 5
                 continue
         elif c == curses.KEY_UP and padpos > 0:
