@@ -753,8 +753,6 @@ def mainloop(screen, socket, interval, mode, ro):
         sleep(scan)
         i -= 1
 
-    socket.close()
-
 
 if __name__ == '__main__':
 
@@ -794,5 +792,6 @@ if __name__ == '__main__':
 
     socket = HAProxyStatusSocket(opts.socket)
     curses.wrapper(mainloop, socket, opts.interval, opts.mode, opts.ro)
+    socket.close()
 
 # vim: et sw=4 tw=78 fdn=1 fdm=indent
