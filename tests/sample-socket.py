@@ -12,7 +12,10 @@ import socket
 import sys
 
 if not len(sys.argv) == 3:
-    sys.stderr.write('usage: %s <path to info sample> <path to stat sample>\n')
+    sys.stderr.write(
+            'usage: %s '
+            '<path to info sample> '
+            '<path to stat sample>\n' % sys.argv[0])
     sys.exit(1)
 
 with file(sys.argv[1]) as info:
