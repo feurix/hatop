@@ -405,9 +405,10 @@ def log(msg):
     sys.stderr.write('%s\n' % msg)
 
 def humanize(value, si=False, time=False):
-    if not value:
-        return ''
-    value = long(value, 10)
+    try:
+        value = long(value, 10)
+    except:
+        return value
 
     if time:
         p = PREFIX_TIME
@@ -419,7 +420,7 @@ def humanize(value, si=False, time=False):
     p = PREFIX_METRIC if si else PREFIX_BINARY
     for minval, prefix in sorted(p.items(), reverse=True):
         if (value/minval):
-            return '%.1f%s' % (value/minval, prefix)
+            return '%.1f%s' % (float(value)/minval, prefix)
     return str(value)
 
 def trim(l, s):
