@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.6'
+__version__   = '0.2.7'
 
 import os
 import sys
@@ -143,6 +143,12 @@ HAPROXY_CLI_PROMPT = '> '
 
 # Upper limit of content lines in the scrolling area
 MAXLINES_CONTENT = 200
+
+# Screen size
+SCREEN_XMIN = 78
+SCREEN_YMIN = 20
+SCREEN_XMAX = 200
+SCREEN_YMAX = 200
 
 HAPROXY_INFO_RE = {
 'software_name':    re.compile('^Name:\s*(?P<value>\S+)'),
@@ -361,6 +367,73 @@ class HAProxyServiceStat:
     def __init__(self, proxy, name):
         self.proxy = proxy
         self.svname = name
+
+class ScreenMode:
+
+    def __init__(self, name):
+        self.name = name
+        self.xmax = SCREEN_XMIN
+        self.ymax = SCREEN_YMIN
+        self.columns = []
+        self.num_columns = 0
+
+    def add_column(self, column):
+        self.columns.append(column)
+        self.num_columns += 1
+
+    def sync_size(self, xmax, ymax):
+        self.xmax = min(xmax, SCREEN_XMAX)
+        self.ymax = min(ymax, SCREEN_YMAX)
+        for idx, column in enumerate(self.columns):
+            column.width = get_width(column.minwidth, self.xmax,
+                    self.num_columns, idx)
+
+    def get_head(self):
+        columns = []
+        for column in self.columns:
+            s = column.header
+            s = get_field(column.width, column.align, s)
+            columns.append(s)
+        return SPACE.join(columns)
+
+    def get_stat(self, service):
+        columns = []
+        for column in self.columns:
+            stat_type, stat_value = getattr(service, column.name)
+            if len(stat_value):
+                if stat_type == 'metric' and len(stat_value) > column.width:
+                    stat_value = human_numeric(stat_value, si=True)
+                elif stat_type == 'binary':
+                    stat_value = human_numeric(stat_value, si=False)
+                elif stat_type == 'seconds':
+                    stat_value = human_time(stat_value)
+                stat_value = trim(column.width, stat_value)
+            stat_value = get_field(column.width, column.align, stat_value)
+            columns.append(stat_value)
+        return SPACE.join(columns)
+
+class ScreenColumn:
+
+    def __init__(self, name, header, minwidth, maxwidth, align):
+        self.name = name
+        self.header = header
+        self.align = align
+        self.minwidth = minwidth
+        self.maxwidth = maxwidth
+        self.width = minwidth
+
+    def __eq__(self, name):
+        return True if name == self.name else False
+
+    @property
+    def width(self):
+        return self._width
+
+    @width.setter
+    def width(self, n):
+        if self.maxwidth:
+            self._width = min(self.maxwidth, n)
+        self._width = max(self.minwidth, n)
 
 class StatusBar:
 
