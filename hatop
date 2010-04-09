@@ -173,80 +173,93 @@ HAPROXY_INFO_RE = {
 'description':      re.compile('^description:\s*(?P<value>\S+)'),
 }
 
-HAPROXY_STAT_CSV = [
+HAPROXY_STAT_CSV = (
 # Note: Fields must be listed in correct order, as described in:
 # http://haproxy.1wt.eu/download/1.4/doc/configuration.txt [9.1]
 
-# Field             Description
+# Field        Type / Prefix   Description
 
-'pxname',           # proxy name
-'svname',           # service name (FRONTEND / BACKEND / name or server name)
-'qcur',             # current queued requests
-'qmax',             # max queued requests
-'scur',             # current sessions
-'smax',             # max sessions
-'slim',             # sessions limit
-'stot',             # total sessions
-'bin',              # bytes in
-'bout',             # bytes out
-'dreq',             # denied requests
-'dresp',            # denied responses
-'ereq',             # request errors
-'econ',             # connection errors
-'eresp',            # response errors (among which srv_abrt)
-'wretr',            # retries (warning)
-'wredis',           # redispatches (warning)
-'status',           # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-'weight',           # server weight (server), total weight (backend)
-'act',              # server is active (server), number of active servers (backend)
-'bck',              # server is backup (server), number of backup servers (backend)
-'chkfail',          # number of failed checks
-'chkdown',          # number of UP->DOWN transitions
-'lastchg',          # last status change (in seconds)
-'downtime',         # total downtime (in seconds)
-'qlimit',           # queue limit
-'pid',              # process id (0 for first instance, 1 for second, ...)
-'iid',              # unique proxy id
-'sid',              # service id (unique inside a proxy)
-'throttle',         # warm up status
-'lbtot',            # total number of times a server was selected
-'tracked',          # id of proxy/server if tracking is enabled
-'type',             # (0=frontend, 1=backend, 2=server, 3=socket)
-'rate',             # number of sessions per second over last elapsed second
-'rate_lim',         # limit on new sessions per second
-'rate_max',         # max number of new sessions per second
-'check_status',     # status of last health check, one of:
-                    #   UNK     -> unknown
-                    #   INI     -> initializing
-                    #   SOCKERR -> socket error
-                    #   L4OK    -> check passed on layer 4, no upper layers testing enabled
-                    #   L4TMOUT -> layer 1-4 timeout
-                    #   L4CON   -> layer 1-4 connection problem, for example
-                    #              "Connection refused" (tcp rst) or "No route to host" (icmp)
-                    #   L6OK    -> check passed on layer 6
-                    #   L6TOUT  -> layer 6 (SSL) timeout
-                    #   L6RSP   -> layer 6 invalid response - protocol error
-                    #   L7OK    -> check passed on layer 7
-                    #   L7OKC   -> check conditionally passed on layer 7, for example 404 with
-                    #              disable-on-404
-                    #   L7TOUT  -> layer 7 (HTTP/SMTP) timeout
-                    #   L7RSP   -> layer 7 invalid response - protocol error
-                    #   L7STS   -> layer 7 response error, for example HTTP 5xx
-'check_code',       # layer5-7 code, if available
-'check_duration',   # time in ms took to finish last health check
-'hrsp_1xx',         # http responses with 1xx code
-'hrsp_2xx',         # http responses with 2xx code
-'hrsp_3xx',         # http responses with 3xx code
-'hrsp_4xx',         # http responses with 4xx code
-'hrsp_5xx',         # http responses with 5xx code
-'hrsp_other',       # http responses with other codes (protocol error)
-'hanafail',         # failed health checks details
-'req_rate',         # HTTP requests per second over last elapsed second
-'req_rate_max',     # max number of HTTP requests per second observed
-'req_tot',          # total number of HTTP requests received
-'cli_abrt',         # number of data transfers aborted by the client
-'srv_abrt',         # number of data transfers aborted by the server (inc. in eresp)
-]
+('pxname',         'string'),  # proxy name
+('svname',         'string'),  # service name
+                               # (FRONTEND / BACKEND / name or server name)
+('qcur',           'metric'),  # current queued requests
+('qmax',           'metric'),  # max queued requests
+('scur',           'metric'),  # current sessions
+('smax',           'metric'),  # max sessions
+('slim',           'metric'),  # sessions limit
+('stot',           'metric'),  # total sessions
+('bin',            'binary'),  # bytes in
+('bout',           'binary'),  # bytes out
+('dreq',           'metric'),  # denied requests
+('dresp',          'metric'),  # denied responses
+('ereq',           'metric'),  # request errors
+('econ',           'metric'),  # connection errors
+('eresp',          'metric'),  # response errors (among which srv_abrt)
+('wretr',          'metric'),  # retries (warning)
+('wredis',         'metric'),  # redispatches (warning)
+('status',         'metric'),  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+('weight',         'metric'),  # server weight (server),
+                               # total weight (backend)
+('act',            'metric'),  # server is active (server),
+                               # number of active servers (backend)
+('bck',            'metric'),  # server is backup (server),
+                               # number of backup servers (backend)
+('chkfail',        'metric'),  # number of failed checks
+('chkdown',        'metric'),  # number of UP->DOWN transitions
+('lastchg',        'seconds'), # last status change (in seconds)
+('downtime',       'seconds'), # total downtime (in seconds)
+('qlimit',         'metric'),  # queue limit
+('pid',            'metric'),  # process id
+('iid',            'metric'),  # unique proxy id
+('sid',            'metric'),  # service id (unique inside a proxy)
+('throttle',       'metric'),  # warm up status
+('lbtot',          'metric'),  # total number of times a server was selected
+('tracked',        'metric'),  # id of proxy/server if tracking is enabled
+('type',           'metric'),  # (0=frontend, 1=backend, 2=server, 3=socket)
+('rate',           'metric'),  # number of sessions per second over last
+                               # elapsed second
+('rate_lim',       'metric'),  # limit on new sessions per second
+('rate_max',       'metric'),  # max number of new sessions per second
+('check_status',   'string'),  # status of last health check, one of:
+                               #   UNK     -> unknown
+                               #   INI     -> initializing
+                               #   SOCKERR -> socket error
+                               #   L4OK    -> check passed on layer 4,
+                               #              no upper layers testing enabled
+                               #   L4TMOUT -> layer 1-4 timeout
+                               #   L4CON   -> layer 1-4 connection problem,
+                               #              for example:
+                               #              "Connection refused" (tcp rst)
+                               #              "No route to host" (icmp)
+                               #   L6OK    -> check passed on layer 6
+                               #   L6TOUT  -> layer 6 (SSL) timeout
+                               #   L6RSP   -> layer 6 invalid response,
+                               #              protocol error
+                               #   L7OK    -> check passed on layer 7
+                               #   L7OKC   -> check conditionally passed on
+                               #              layer 7, for example 404 with
+                               #              disable-on-404
+                               #   L7TOUT  -> layer 7 (HTTP/SMTP) timeout
+                               #   L7RSP   -> layer 7 invalid response,
+                               #              protocol error
+                               #   L7STS   -> layer 7 response error,
+                               #              for example HTTP 5xx
+('check_code',     'metric'),  # layer5-7 code, if available
+('check_duration', 'metric'),  # time in ms took to finish last health check
+('hrsp_1xx',       'metric'),  # http responses with 1xx code
+('hrsp_2xx',       'metric'),  # http responses with 2xx code
+('hrsp_3xx',       'metric'),  # http responses with 3xx code
+('hrsp_4xx',       'metric'),  # http responses with 4xx code
+('hrsp_5xx',       'metric'),  # http responses with 5xx code
+('hrsp_other',     'metric'),  # http responses with other codes
+                               # (protocol error)
+('hanafail',       'string'),  # failed health checks details
+('req_rate',       'metric'),  # HTTP requests per second
+('req_rate_max',   'metric'),  # max number of HTTP requests per second
+('req_tot',        'metric'),  # total number of HTTP requests received
+('cli_abrt',       'metric'),  # number of data transfers aborted by client
+('srv_abrt',       'metric'),  # number of data transfers aborted by server
+)
 HAPROXY_STAT_NUMFIELDS = len(HAPROXY_STAT_CSV)
 
 # All (possible) big numeric values on the screen are humanized using the
