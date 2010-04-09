@@ -33,17 +33,19 @@ s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 s.bind(SOCKET_PATH)
 s.listen(1)
 
-conn, addr = s.accept()
-
 while 1:
-    data = conn.recv(1024)
-    if not data or data == 'quit\n':
-        break
-    elif data == 'show info\n':
-        conn.sendall(data_info)
-    elif data == 'show stat\n':
-        conn.sendall(data_stat)
-    conn.send('\n')
-    conn.send(SOCKET_PROMPT)
-conn.close()
+    conn, addr = s.accept()
+
+    while 1:
+        data = conn.recv(1024)
+        if not data or data == 'quit\n':
+            break
+        elif data == 'show info\n':
+            conn.sendall(data_info)
+        elif data == 'show stat\n':
+            conn.sendall(data_stat)
+        conn.send('\n')
+        conn.send(SOCKET_PROMPT)
+
+    conn.close()
 
