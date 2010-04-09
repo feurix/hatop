@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.5'
+__version__   = '0.2.6'
 
 import os
 import sys
@@ -243,16 +243,11 @@ HAPROXY_STAT_NUMFIELDS = len(HAPROXY_STAT_CSV)
 PREFIX_BINARY = {
         1024:    'K',
         1024**2: 'M',
-        1024**3: 'G',
-        1024**4: 'T',
-        1024**5: 'P',
 }
 PREFIX_METRIC = {
         1000:    'k',
         1000**2: 'M',
         1000**3: 'G',
-        1000**4: 'T',
-        1000**5: 'P',
 }
 PREFIX_TIME = {
         60:      'm',
