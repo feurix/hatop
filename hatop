@@ -128,13 +128,14 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.4'
+__version__   = '0.2.5'
 
 import os
 import sys
 import re
 import curses
 
+from time import sleep, ctime
 # Settings of interactive command session over the unix-socket
 HAPROXY_CLI_BUFSIZE = 4096
 HAPROXY_CLI_TIMEOUT = 60
@@ -259,10 +260,15 @@ PREFIX_TIME = {
         60*60*24:'d',
 }
 
-class HAProxyStatusSocket:
+SPACE = ' '
+READ_ONLY = False
+
+class HAProxySocket:
 
     def __init__(self, path):
         self.path = path
+
+    def init(self):
 
         from socket import socket, AF_UNIX, SOCK_STREAM
         self._socket = socket(AF_UNIX, SOCK_STREAM)
@@ -278,7 +284,14 @@ class HAProxyStatusSocket:
         self._socket.connect(self.path)
 
     def close(self):
-        self._socket.close()
+        try:
+            self.send('quit')
+        except:
+            pass
+        try:
+            self._socket.close()
+        except:
+            pass
 
     def send(self, data):
         self._socket.sendall('%s\n' % data)
@@ -439,6 +452,28 @@ def get_status(service):
 
 def draw_help(screen):
     screen.addstr(0, 0, __doc__)
+def curses_init():
+    try:
+        screen = curses.initscr()
+    except Exception as e:
+        log('curses error while initializing: %s' % e)
+        sys.exit(1)
+    curses.noecho()
+    curses.cbreak()
+    curses.curs_set(0)
+    try:
+        curses.start_color()
+        curses.use_default_colors()
+    except:
+        pass
+    curses.def_prog_mode() # save state for recovery
+    return screen
+
+def curses_reset(screen):
+    screen.keypad(0)
+    curses.echo()
+    curses.nocbreak()
+    curses.endwin()
 
 def draw_line(screen, ypos, xpos, text=None, attr=curses.A_REVERSE):
     ymax, xmax = screen.getmaxyx()
@@ -522,7 +557,7 @@ def draw_footer(screen, mode, ro):
     attr = attr_active if mode == 4 else attr_inactive
     screen.addstr(ypos, 29, ' 4-ERRORS ', attr)
 
-    if not ro:
+    if not READ_ONLY:
         attr = attr_active if mode == 5 else attr_inactive
         screen.addstr(ypos, 39, ' 5-CLI ', attr)
 
@@ -666,15 +701,13 @@ def update_stat(socket):
 def run_cli(pad):
     pass # TODO
 
-def mainloop(screen, socket, interval, mode, ro):
-    from time import sleep, ctime
 
-    # Initialize curses and screen
-    curses.curs_set(0)
-    curses.use_default_colors()
-    screen.move(0, 0)
+def mainloop(screen, socket, interval, mode):
+    # Initialize curses screen
+    screen.keypad(1)
     screen.nodelay(1)
     screen.idlok(1)
+    screen.move(0, 0)
 
     # Initialize the scrollable content pad
     ymax, xmax = screen.getmaxyx()
@@ -743,7 +776,7 @@ def mainloop(screen, socket, interval, mode, ro):
         if 0 < c < 256:
             c = chr(c)
             if c in 'qQ':
-                break
+                raise StopIteration('end of mainloop')
             if c in ' ':
                 i = 0
                 continue
@@ -762,7 +795,7 @@ def mainloop(screen, socket, interval, mode, ro):
             if c in '4':
                 i, mode = 0, 4
                 continue
-            if c in '5' and not ro:
+            if c in '5' and not READ_ONLY:
                 i, mode = 0, 5
                 continue
         elif c == curses.KEY_UP and padpos > 0:
@@ -818,14 +851,41 @@ if __name__ == '__main__':
         log('insufficient permissions for path %s' % opts.socket)
         sys.exit(2)
 
-    try:
-        socket = HAProxyStatusSocket(opts.socket)
-    except:
-        raise
+    READ_ONLY = opts.ro
 
-    try:
-        curses.wrapper(mainloop, socket, opts.interval, opts.mode, opts.ro)
-    finally:
-        socket.close()
+    socket = HAProxySocket(opts.socket)
+    screen = curses_init()
+
+    from socket import error as SocketError
+    from _curses import error as CursesError
+
+    import signal
+    signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
+
+    while True:
+        try:
+            try:
+                socket.init()
+                curses.reset_prog_mode()
+                mainloop(screen, socket, opts.interval, opts.mode)
+            finally:
+                curses_reset(screen) # reset early to display errors
+        except StopIteration:
+            sys.exit(0)
+        except RuntimeError as e:
+            log('error: %s' % e)
+            sys.exit(1)
+        except SocketError as e:
+            log('socket error: %s' % e)
+            sys.exit(3)
+        except CursesError as e:
+            log('curses error: %s, restarting...' % e)
+            sleep(1)
+            continue
+        except:
+            raise
+        finally:
+            socket.close()
 
 # vim: et sw=4 tw=78 fdn=1 fdm=indent
