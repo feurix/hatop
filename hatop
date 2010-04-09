@@ -136,6 +136,11 @@ import re
 import curses
 
 from time import sleep, ctime
+
+# ------------------------------------------------------------------------- #
+#                               GLOBALS                                     #
+# ------------------------------------------------------------------------- #
+
 # Settings of interactive command session over the unix-socket
 HAPROXY_CLI_BUFSIZE = 4096
 HAPROXY_CLI_TIMEOUT = 60
@@ -263,6 +268,10 @@ PREFIX_TIME = {
 
 SPACE = ' '
 READ_ONLY = False
+
+# ------------------------------------------------------------------------- #
+#                           CLASS DEFINITIONS                               #
+# ------------------------------------------------------------------------- #
 
 class HAProxySocket:
 
@@ -482,6 +491,10 @@ class StatusBar:
 
         return bar
 
+# ------------------------------------------------------------------------- #
+#                             SCREEN LAYOUT                                 #
+# ------------------------------------------------------------------------- #
+
 SCREEN_MODES = [
         ScreenMode('HELP'),
         ScreenMode('STATUS'),
@@ -553,6 +566,10 @@ SCREEN_MODES[4].add_column(ScreenColumn('downtime',     'DOWN',   5,  0, 'R'))
 SCREEN_MODES[5].add_column(ScreenColumn('cli', ' haproxy command line',
                                                          SCREEN_XMIN, 0, 'L'))
 
+# ------------------------------------------------------------------------- #
+#                                HELPERS                                    #
+# ------------------------------------------------------------------------- #
+
 def log(msg):
     sys.stderr.write('%s\n' % msg)
 
@@ -588,6 +605,9 @@ def get_status(service):
     if service.status == 'no check':
         return ('-', 'none')
     return (service.status, service.check_status)
+# ------------------------------------------------------------------------- #
+#                            CURSES HELPERS                                 #
+# ------------------------------------------------------------------------- #
 
 def draw_help(screen):
     screen.addstr(0, 0, __doc__)
@@ -840,6 +860,9 @@ def update_stat(socket):
 def run_cli(pad):
     pass # TODO
 
+# ------------------------------------------------------------------------- #
+#                               MAIN LOOP                                   #
+# ------------------------------------------------------------------------- #
 
 def mainloop(screen, socket, interval, mode):
     # Initialize curses screen
