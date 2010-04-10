@@ -646,11 +646,7 @@ def get_stat(socket):
 # ------------------------------------------------------------------------- #
 
 def curses_init():
-    try:
-        screen = curses.initscr()
-    except Exception as e:
-        log('curses error while initializing: %s' % e)
-        sys.exit(1)
+    screen = curses.initscr()
     curses.noecho()
     curses.cbreak()
     curses.curs_set(0)
@@ -930,7 +926,12 @@ if __name__ == '__main__':
     READ_ONLY = opts.ro
 
     socket = HAProxySocket(opts.socket)
-    screen = curses_init()
+
+    try:
+        screen = curses_init()
+    except Exception as e:
+        log('curses error while initializing: %s' % e)
+        sys.exit(1)
 
     from socket import error as SocketError
     from _curses import error as CursesError
