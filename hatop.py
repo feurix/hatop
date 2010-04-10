@@ -480,6 +480,21 @@ class ScreenColumn:
             self._width = min(self.maxwidth, n)
         self._width = max(self.minwidth, n)
 
+
+class ScreenLine:
+
+    def __init__(self):
+        self.proxy = None
+        self.service = None
+        self.value = ''
+        self.attr = 0
+
+    def format(self, mode):
+        if self.service is None:
+            return get_field(mode.xmax, 'L', self.value)
+        return get_line(mode, self.service)
+
+
 class StatusBar:
 
     def __init__(self, width=60, min=0, max=100, status=True):
