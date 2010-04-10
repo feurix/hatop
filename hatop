@@ -1,0 +1,3 @@
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin
+exec python -O hatop.py "$@"
