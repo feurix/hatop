@@ -545,67 +545,79 @@ SCREEN_MODES = [
         ScreenMode('CLI'),
 ]
 
-# Mode: HELP
-SCREEN_MODES[0].add_column(ScreenColumn('help', ' hatop online help ',
-                                                         SCREEN_XMIN, 0, 'L'))
+# Mode: HELP         name            header     xmin    xmax    align
+SCREEN_MODES[0].columns = [
+        ScreenColumn('help', ' hatop online help ',
+                                         SCREEN_XMIN,      0,    'L'),
+]
 
-# Mode: STATUS                          name            header  min max  align
-SCREEN_MODES[1].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[1].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
-SCREEN_MODES[1].add_column(ScreenColumn('check_status', 'CHECK',  7, 20, 'L'))
-SCREEN_MODES[1].add_column(ScreenColumn('act',          'ACT',    3,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('bck',          'BCK',    3,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('qcur',         'QCUR',   5,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('qmax',         'QMAX',   5,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('scur',         'SCUR',   6,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('smax',         'SMAX',   6,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('slim',         'SLIM',   6,  0, 'R'))
-SCREEN_MODES[1].add_column(ScreenColumn('stot',         'STOT',   6,  0, 'R'))
+# Mode: STATUS       name            header     xmin    xmax    align
+SCREEN_MODES[1].columns = [
+        ScreenColumn('svname',       'NAME',      10,     50,    'L'),
+        ScreenColumn('weight',       'W',          4,      6,    'R'),
+        ScreenColumn('status',       'STATUS',     6,     10,    'L'),
+        ScreenColumn('check_status', 'CHECK',      7,     20,    'L'),
+        ScreenColumn('act',          'ACT',        3,      0,    'R'),
+        ScreenColumn('bck',          'BCK',        3,      0,    'R'),
+        ScreenColumn('qcur',         'QCUR',       5,      0,    'R'),
+        ScreenColumn('qmax',         'QMAX',       5,      0,    'R'),
+        ScreenColumn('scur',         'SCUR',       6,      0,    'R'),
+        ScreenColumn('smax',         'SMAX',       6,      0,    'R'),
+        ScreenColumn('slim',         'SLIM',       6,      0,    'R'),
+        ScreenColumn('stot',         'STOT',       6,      0,    'R'),
+]
 
-# Mode: TRAFFIC                          name            header min max  align
-SCREEN_MODES[2].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[2].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
-SCREEN_MODES[2].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
-SCREEN_MODES[2].add_column(ScreenColumn('lbtot',        'LBTOT',  8,  0, 'R'))
-SCREEN_MODES[2].add_column(ScreenColumn('rate',         'RATE',   6,  0, 'R'))
-SCREEN_MODES[2].add_column(ScreenColumn('rate_lim',     'RLIM',   6,  0, 'R'))
-SCREEN_MODES[2].add_column(ScreenColumn('rate_max',     'RMAX',   6,  0, 'R'))
-SCREEN_MODES[2].add_column(ScreenColumn('bin',          'BIN',   12,  0, 'R'))
-SCREEN_MODES[2].add_column(ScreenColumn('bout',         'BOUT',  12,  0, 'R'))
+# Mode: TRAFFIC      name            header     xmin    xmax    align
+SCREEN_MODES[2].columns = [
+        ScreenColumn('svname',       'NAME',      10,     50,    'L'),
+        ScreenColumn('weight',       'W',          4,      6,    'R'),
+        ScreenColumn('status',       'STATUS',     6,     10,    'L'),
+        ScreenColumn('lbtot',        'LBTOT',      8,      0,    'R'),
+        ScreenColumn('rate',         'RATE',       6,      0,    'R'),
+        ScreenColumn('rate_lim',     'RLIM',       6,      0,    'R'),
+        ScreenColumn('rate_max',     'RMAX',       6,      0,    'R'),
+        ScreenColumn('bin',          'BIN',       12,      0,    'R'),
+        ScreenColumn('bout',         'BOUT',      12,      0,    'R'),
+]
 
-# Mode: HTTP                            name            header  min max  align
-SCREEN_MODES[3].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[3].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
-SCREEN_MODES[3].add_column(ScreenColumn('req_rate',     'RATE',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('req_rate_max', 'RMAX',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('req_tot',      'RTOT',   7,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('hrsp_1xx',      '1xx',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('hrsp_2xx',      '2xx',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('hrsp_3xx',      '3xx',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('hrsp_4xx',      '4xx',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('hrsp_5xx',      '5xx',   5,  0, 'R'))
-SCREEN_MODES[3].add_column(ScreenColumn('hrsp_other',    '?xx',   5,  0, 'R'))
+# Mode: HTTP         name            header     xmin    xmax    align
+SCREEN_MODES[3].columns = [
+        ScreenColumn('svname',       'NAME',      10,     50,    'L'),
+        ScreenColumn('weight',       'W',          4,      6,    'R'),
+        ScreenColumn('status',       'STATUS',     6,     10,    'L'),
+        ScreenColumn('req_rate',     'RATE',       5,      0,    'R'),
+        ScreenColumn('req_rate_max', 'RMAX',       5,      0,    'R'),
+        ScreenColumn('req_tot',      'RTOT',       7,      0,    'R'),
+        ScreenColumn('hrsp_1xx',     '1xx',        5,      0,    'R'),
+        ScreenColumn('hrsp_2xx',     '2xx',        5,      0,    'R'),
+        ScreenColumn('hrsp_3xx',     '3xx',        5,      0,    'R'),
+        ScreenColumn('hrsp_4xx',     '4xx',        5,      0,    'R'),
+        ScreenColumn('hrsp_5xx',     '5xx',        5,      0,    'R'),
+        ScreenColumn('hrsp_other',   '?xx',        5,      0,    'R'),
+]
 
-# Mode: STATUS                          name            header  min max  align
-SCREEN_MODES[4].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[4].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
-SCREEN_MODES[4].add_column(ScreenColumn('check_status', 'CHECK',  7, 20, 'L'))
-SCREEN_MODES[4].add_column(ScreenColumn('chkfail',      'CF',     3,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('chkdown',      'CD',     3,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('lastchg',      'CL',     3,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('econ',         'ECONN',  5,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('ereq',         'EREQ',   5,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('eresp',        'ERSP',   5,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('dreq',         'DREQ',   5,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('dresp',        'DRSP',   5,  0, 'R'))
-SCREEN_MODES[4].add_column(ScreenColumn('downtime',     'DOWN',   5,  0, 'R'))
+# Mode: ERRORS       name            header     xmin    xmax    align
+SCREEN_MODES[4].columns = [
+        ScreenColumn('svname',       'NAME',      10,     50,    'L'),
+        ScreenColumn('weight',       'W',          4,      6,    'R'),
+        ScreenColumn('status',       'STATUS',     6,     10,    'L'),
+        ScreenColumn('check_status', 'CHECK',      7,     20,    'L'),
+        ScreenColumn('chkfail',      'CF',         3,      0,    'R'),
+        ScreenColumn('chkdown',      'CD',         3,      0,    'R'),
+        ScreenColumn('lastchg',      'CL',         3,      0,    'R'),
+        ScreenColumn('econ',         'ECONN',      5,      0,    'R'),
+        ScreenColumn('ereq',         'EREQ',       5,      0,    'R'),
+        ScreenColumn('eresp',        'ERSP',       5,      0,    'R'),
+        ScreenColumn('dreq',         'DREQ',       5,      0,    'R'),
+        ScreenColumn('dresp',        'DRSP',       5,      0,    'R'),
+        ScreenColumn('downtime',     'DOWN',       5,      0,    'R'),
+]
 
-# Mode: CLI
-SCREEN_MODES[5].add_column(ScreenColumn('cli', ' haproxy command line',
-                                                         SCREEN_XMIN, 0, 'L'))
+# Mode: CLI          name            header     xmin    xmax    align
+SCREEN_MODES[5].columns = [
+        ScreenColumn('cli', ' haproxy command line',
+                                         SCREEN_XMIN,      0,    'L'),
+]
 
 # ------------------------------------------------------------------------- #
 #                                HELPERS                                    #
