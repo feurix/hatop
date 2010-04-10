@@ -604,9 +604,9 @@ def trim(l, s):
         return s
     if l == 1:
         return s[0]
-    if l >= 3:
+    if l > 5:
         return '..%s' % s[-(l-2):]
-    return '-'
+    return '...'
 
 def get_width(width, xmax, ncols, idx):
     # distribute excess space evenly from left to right
