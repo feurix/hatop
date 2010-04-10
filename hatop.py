@@ -420,11 +420,6 @@ class ScreenMode:
         self.xmax = SCREEN_XMIN
         self.ymax = SCREEN_YMIN
         self.columns = []
-        self.num_columns = 0
-
-    def add_column(self, column):
-        self.columns.append(column)
-        self.num_columns += 1
 
     def sync_size(self, xmax, ymax):
         self.xmax = min(xmax, SCREEN_XMAX)
