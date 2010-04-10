@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.8'
+__version__   = '0.2.9'
 
 import os
 import sys
@@ -147,7 +147,7 @@ HAPROXY_CLI_TIMEOUT = 60
 HAPROXY_CLI_PROMPT = '> '
 
 # Upper limit of content lines in the scrolling area
-MAXLINES_CONTENT = 200
+MAXLINES_CONTENT = 1000
 
 # Screen size
 SCREEN_XMIN = 78
@@ -791,7 +791,7 @@ def mainloop(screen, socket, interval, mode):
 
     # Initialize the scrollable content pad
     ymax, xmax = screen.getmaxyx()
-    pad = curses.newpad(MAXLINES_CONTENT+2, xmax)
+    pad = curses.newpad(MAXLINES_CONTENT+2, SCREEN_XMAX)
     padpos = 0
 
     # Prepare status bars
@@ -838,7 +838,7 @@ def mainloop(screen, socket, interval, mode):
 
             # Update physical screen
             screen.noutrefresh()
-            pad.noutrefresh(padpos, 0, 13, 0, ymax-3, xmax)
+            pad.noutrefresh(padpos, 0, 13, 0, ymax-3, xmax-1)
             curses.doupdate()
 
             i = update
@@ -872,16 +872,16 @@ def mainloop(screen, socket, interval, mode):
                 continue
         elif c == curses.KEY_UP and padpos > 0:
             padpos -= 1
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
         elif c == curses.KEY_DOWN and padpos < (MAXLINES_CONTENT-ymax):
             padpos += 1
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
         elif c == curses.KEY_PPAGE and padpos > 0:
             padpos = max(0, padpos-10)
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
         elif c == curses.KEY_NPAGE and padpos < (MAXLINES_CONTENT-ymax-10):
             padpos += 10
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax)
+            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
 
         sleep(scan)
         i -= 1
