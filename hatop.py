@@ -365,6 +365,24 @@ class HAProxySocket:
                     break
         return info
 
+
+class HAProxyData:
+
+    def __init__(self, socket):
+        self.socket = socket
+        self.info = self.stat = {}
+        self.lines = []
+
+    def update_info(self):
+        self.info = self.socket.get_info()
+
+    def update_stat(self):
+        self.stat = self.socket.get_stat()
+
+    def update_lines(self):
+        self.lines = get_lines(self.stat)
+
+
 class HAProxyStat:
 
     def __init__(self):
