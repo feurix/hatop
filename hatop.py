@@ -261,6 +261,8 @@ HAPROXY_STAT_CSV = (
 ('srv_abrt',       'metric'),  # number of data transfers aborted by server
 )
 HAPROXY_STAT_NUMFIELDS = len(HAPROXY_STAT_CSV)
+HAPROXY_STAT_COMMENT = '#'
+HAPROXY_STAT_SEP = ','
 
 # All (possible) big numeric values on the screen are humanized using the
 # metric prefix set, while everything byte related is using binary prefixes.
@@ -333,12 +335,12 @@ class HAProxySocket:
     def get_stat(self):
         stats = {}
         for line in self.iterlines('show stat'):
-            if line.count(',') != HAPROXY_STAT_NUMFIELDS:
+            if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
                 continue # unknown format
-            if line.startswith('#'):
+            if line.startswith(HAPROXY_STAT_COMMENT):
                 continue # comment
 
-            stat = line.split(',')
+            stat = line.split(HAPROXY_STAT_SEP)
             stat = map(lambda s: s.strip(), stat)
             pxname = stat[0]
 
