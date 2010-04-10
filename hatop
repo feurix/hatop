@@ -58,7 +58,7 @@ Services    number of configured services
 In multiple modes:
 
 NAME        name of the proxy and his services
-WEIGHT      configured weight of the service
+W           configured weight of the service
 STATUS      service status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
 CHECK       status of last health check (see status reference below)
 
@@ -521,7 +521,7 @@ SCREEN_MODES[0].add_column(ScreenColumn('help', ' hatop online help ',
 
 # Mode: STATUS                          name            header  min max  align
 SCREEN_MODES[1].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[1].add_column(ScreenColumn('weight',       'WEIGHT', 4,  6, 'R'))
+SCREEN_MODES[1].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
 SCREEN_MODES[1].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
 SCREEN_MODES[1].add_column(ScreenColumn('check_status', 'CHECK',  7, 20, 'L'))
 SCREEN_MODES[1].add_column(ScreenColumn('act',          'ACT',    3,  0, 'R'))
@@ -535,7 +535,7 @@ SCREEN_MODES[1].add_column(ScreenColumn('stot',         'STOT',   6,  0, 'R'))
 
 # Mode: TRAFFIC                          name            header min max  align
 SCREEN_MODES[2].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[2].add_column(ScreenColumn('weight',       'WEIGHT', 4,  6, 'R'))
+SCREEN_MODES[2].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
 SCREEN_MODES[2].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
 SCREEN_MODES[2].add_column(ScreenColumn('lbtot',        'LBTOT',  8,  0, 'R'))
 SCREEN_MODES[2].add_column(ScreenColumn('rate',         'RATE',   6,  0, 'R'))
@@ -546,7 +546,7 @@ SCREEN_MODES[2].add_column(ScreenColumn('bout',         'BOUT',  12,  0, 'R'))
 
 # Mode: HTTP                            name            header  min max  align
 SCREEN_MODES[3].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[3].add_column(ScreenColumn('weight',       'WEIGHT', 4,  6, 'R'))
+SCREEN_MODES[3].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
 SCREEN_MODES[3].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
 SCREEN_MODES[3].add_column(ScreenColumn('req_rate',     'RATE',   5,  0, 'R'))
 SCREEN_MODES[3].add_column(ScreenColumn('req_rate_max', 'RMAX',   5,  0, 'R'))
@@ -560,7 +560,7 @@ SCREEN_MODES[3].add_column(ScreenColumn('hrsp_other',    '?xx',   5,  0, 'R'))
 
 # Mode: STATUS                          name            header  min max  align
 SCREEN_MODES[4].add_column(ScreenColumn('svname',       'NAME',  10, 50, 'L'))
-SCREEN_MODES[4].add_column(ScreenColumn('weight',       'WEIGHT', 4,  6, 'R'))
+SCREEN_MODES[4].add_column(ScreenColumn('weight',       'W',      4,  6, 'R'))
 SCREEN_MODES[4].add_column(ScreenColumn('status',       'STATUS', 6, 10, 'L'))
 SCREEN_MODES[4].add_column(ScreenColumn('check_status', 'CHECK',  7, 20, 'L'))
 SCREEN_MODES[4].add_column(ScreenColumn('chkfail',      'CF',     3,  0, 'R'))
