@@ -807,12 +807,13 @@ def mainloop(screen, socket, interval, mode):
     i = 0
     while 1:
         ymax, xmax = screen.getmaxyx()
-        if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
-            raise RuntimeError('Terminal too small, need at least %dx%d' % (
-                    SCREEN_XMIN, SCREEN_YMIN))
-
-        # Save current screen dimensions and re-calculate column widths
-        SCREEN_MODES[mode].sync_size(xmax, ymax)
+        if ymax != SCREEN_MODES[mode].ymax or xmax != SCREEN_MODES[mode].xmax:
+            if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
+                raise RuntimeError(
+                        'Terminal too small, need at least %dx%d' % (
+                        SCREEN_XMIN, SCREEN_YMIN))
+            # Save current screen dimensions and re-calculate column widths
+            SCREEN_MODES[mode].sync_size(xmax, ymax)
 
         if i == 0:
             # Query the socket for new data and parse it
