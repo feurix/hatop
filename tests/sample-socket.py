@@ -10,6 +10,7 @@ SOCKET_PROMPT='> '
 import os
 import socket
 import sys
+import time
 
 if not len(sys.argv) == 3:
     sys.stderr.write(
@@ -38,14 +39,20 @@ while 1:
 
     while 1:
         data = conn.recv(1024)
+        print('--- %s' % time.ctime())
+        print('recv: %s' % data.strip())
         if not data or data == 'quit\n':
             break
         elif data == 'show info\n':
+            print('send: info...')
             conn.sendall(data_info)
         elif data == 'show stat\n':
+            print('send: stat...')
             conn.sendall(data_stat)
-        conn.send('\n')
-        conn.send(SOCKET_PROMPT)
+        print('send: empty line (end of response)')
+        conn.sendall('\n')
+        print('send: prompt')
+        conn.sendall(SOCKET_PROMPT)
 
     conn.close()
 
