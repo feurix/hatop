@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.2.9'
+__version__   = '0.3.0'
 
 import os
 import sys
@@ -145,15 +145,17 @@ from time import sleep, ctime
 HAPROXY_CLI_BUFSIZE = 4096
 HAPROXY_CLI_TIMEOUT = 60
 HAPROXY_CLI_PROMPT = '> '
-
-# Upper limit of content lines in the scrolling area
-MAXLINES_CONTENT = 1000
+HAPROXY_CLI_MAXLINES = 2000
 
 # Screen size
 SCREEN_XMIN = 78
 SCREEN_YMIN = 20
 SCREEN_XMAX = 200
 SCREEN_YMAX = 200
+
+# Upper limit of stat lines on the pad
+STAT_MAX_LINES = 150
+
 
 HAPROXY_INFO_RE = {
 'software_name':    re.compile('^Name:\s*(?P<value>\S+)'),
@@ -323,18 +325,22 @@ class HAProxySocket:
         self._socket.sendall('%s\n' % data)
 
     def recv(self):
-        data = self._socket.recv(HAPROXY_CLI_BUFSIZE)
-        while not data.endswith(HAPROXY_CLI_PROMPT):
-            data += self._socket.recv(HAPROXY_CLI_BUFSIZE)
-        return data[:(-len(HAPROXY_CLI_PROMPT))]
-
-    def iterlines(self, command):
-        self.send(command)
-        return iter(self.recv().strip().splitlines())
+        lines = []
+        chunk = ''
+        while not chunk.endswith(HAPROXY_CLI_PROMPT):
+            if len(lines) == HAPROXY_CLI_MAXLINES:
+                chunk = self._socket.recv(HAPROXY_CLI_BUFSIZE)
+                continue
+            chunk += self._socket.recv(HAPROXY_CLI_BUFSIZE)
+            while len(lines) < HAPROXY_CLI_MAXLINES and '\n' in chunk:
+                line, chunk = chunk.split('\n', 1)
+                lines.append(line)
+        return lines
 
     def get_stat(self):
         stats = {}
-        for line in self.iterlines('show stat'):
+        self.send('show stat')
+        for line in self.recv():
             if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
                 continue # unknown format
             if line.startswith(HAPROXY_STAT_COMMENT):
@@ -354,7 +360,8 @@ class HAProxySocket:
 
     def get_info(self):
         info = {}
-        for line in self.iterlines('show info'):
+        self.send('show info')
+        for line in self.recv():
             line = line.strip()
             if not line:
                 continue
@@ -408,10 +415,12 @@ class HAProxyStat:
 
             setattr(service, name, (type, value))
 
+
 class HAProxyServiceStat:
 
     def __init__(self, proxy):
         self.proxy = proxy
+
 
 class ScreenMode:
 
@@ -419,6 +428,8 @@ class ScreenMode:
         self.name = name
         self.xmax = SCREEN_XMIN
         self.ymax = SCREEN_YMIN
+        self.ypos = 0
+        self.cpos = 0
         self.columns = []
 
     def sync_size(self, xmax, ymax):
@@ -426,31 +437,12 @@ class ScreenMode:
         self.ymax = min(ymax, SCREEN_YMAX)
         for idx, column in enumerate(self.columns):
             column.width = get_width(column.minwidth, self.xmax,
-                    self.num_columns, idx)
+                    len(self.columns), idx)
 
-    def get_head(self):
-        columns = []
-        for column in self.columns:
-            s = column.header
-            s = get_field(column.width, column.align, s)
-            columns.append(s)
-        return SPACE.join(columns)
+    def sync_pos(self, mode):
+        mode.ypos, mode.cpos = self.ypos, self.cpos
+        return mode
 
-    def get_stat(self, service):
-        columns = []
-        for column in self.columns:
-            stat_type, stat_value = getattr(service, column.name)
-            if len(stat_value):
-                if stat_type == 'metric' and len(stat_value) > column.width:
-                    stat_value = human_numeric(stat_value, si=True)
-                elif stat_type == 'binary':
-                    stat_value = human_numeric(stat_value, si=False)
-                elif stat_type == 'seconds':
-                    stat_value = human_time(stat_value)
-                stat_value = trim(column.width, stat_value)
-            stat_value = get_field(column.width, column.align, stat_value)
-            columns.append(stat_value)
-        return SPACE.join(columns)
 
 class ScreenColumn:
 
@@ -672,16 +664,73 @@ def get_field(width, align, s):
         s = s.rjust(width)
     return s
 
-def get_info(socket, sb_conn, sb_pipe):
-    data = socket.get_info()
-    sb_conn.update_max(int(data['maxconn'], 10))
-    sb_conn.update_cur(int(data['curconn'], 10))
-    sb_pipe.update_max(int(data['maxpipes'], 10))
-    sb_pipe.update_cur(int(data['curpipes'], 10))
-    return data
+def get_head(mode):
+    columns = []
+    for column in mode.columns:
+        s = column.header
+        s = get_field(column.width, column.align, s)
+        columns.append(s)
+    return SPACE.join(columns)
 
-def get_stat(socket):
-    return socket.get_stat()
+def get_lines(stat):
+    lines = []
+    for pxname, proxy in sorted(stat.items()):
+        line = ScreenLine()
+        line.proxy = proxy
+        line.value = '>>> %s' % pxname
+        line.attr = curses.A_BOLD
+        lines.append(line)
+
+        try:
+            frontend = proxy.services.pop('FRONTEND')
+        except:
+            frontend = None
+        try:
+            backend = proxy.services.pop('BACKEND')
+        except:
+            backend = None
+
+        if frontend:
+            line = ScreenLine()
+            line.proxy = proxy
+            line.service = frontend
+            lines.append(line)
+            if len(lines) == STAT_MAX_LINES: break
+
+        for svname, service in sorted(proxy.services.items()):
+            line = ScreenLine()
+            line.proxy = proxy
+            line.service = service
+            lines.append(line)
+            if len(lines) == STAT_MAX_LINES: break
+
+        if backend:
+            line = ScreenLine()
+            line.proxy = proxy
+            line.service = backend
+            lines.append(line)
+            if len(lines) == STAT_MAX_LINES: break
+
+        lines.append(ScreenLine())
+        if len(lines) >= STAT_MAX_LINES - 2: break
+
+    return lines
+
+def get_line(mode, service):
+    columns = []
+    for column in mode.columns:
+        stat_type, stat_value = getattr(service, column.name)
+        if len(stat_value):
+            if stat_type == 'metric' and len(stat_value) > column.width:
+                stat_value = human_numeric(stat_value, si=True)
+            elif stat_type == 'binary':
+                stat_value = human_numeric(stat_value, si=False)
+            elif stat_type == 'seconds':
+                stat_value = human_time(stat_value)
+            stat_value = trim(column.width, stat_value)
+        stat_value = get_field(column.width, column.align, stat_value)
+        columns.append(stat_value)
+    return SPACE.join(columns)
 
 # ------------------------------------------------------------------------- #
 #                            CURSES HELPERS                                 #
@@ -718,101 +767,74 @@ def draw_head(screen):
     screen.addstr(0, 0, ctime().rjust(SCREEN_XMIN), attr)
     screen.addstr(0, 1, 'hatop version ' + __version__, attr)
 
-def draw_info(screen, info, stat, sb_conn, sb_pipe):
+def draw_info(screen, data, sb_conn, sb_pipe):
     screen.addstr(2, 2,
             '%s Version: %s  (released: %s)' % (
-                info['software_name'],
-                info['software_version'],
-                info['software_release'],
+                data.info['software_name'],
+                data.info['software_version'],
+                data.info['software_release'],
             ), curses.A_BOLD)
 
     screen.addstr(2, 56, 'PID: %d (proc %d)' % (
-                int(info['pid'], 10),
-                int(info['procn'], 10),
+                int(data.info['pid'], 10),
+                int(data.info['procn'], 10),
             ), curses.A_BOLD)
 
     screen.addstr(4, 2,  '       Node: %s (uptime %s)' % (
-        info['node'] if info['node'] else 'unknown', info['uptime']))
+                data.info['node'] if data.info['node'] else 'unknown',
+                data.info['uptime'],
+            ))
 
     screen.addstr(6, 2,  '      Pipes: %s'  % sb_pipe)
     screen.addstr(7, 2,  'Connections: %s'  % sb_conn)
 
-    num_proxies = len(stat)
-    num_services = sum(len(proxy.services) for proxy in stat.itervalues())
+    num_proxies = len(data.stat)
+    num_services = sum(len(proxy.services) for proxy in
+            data.stat.itervalues())
 
     screen.addstr(9, 2,
             'Procs: %3d   Tasks: %5d    Queue: %5d    '
             'Proxies: %3d   Services: %4d' % (
-                int(info['nproc'], 10),
-                int(info['tasks'], 10),
-                int(info['runqueue'], 10),
+                int(data.info['nproc'], 10),
+                int(data.info['tasks'], 10),
+                int(data.info['runqueue'], 10),
                 num_proxies,
                 num_services,
             ))
 
 def draw_cols(screen, mode):
-    draw_line(screen, 11, 0, SCREEN_MODES[mode].get_head(),
-            curses.A_REVERSE | curses.A_BOLD)
+    draw_line(screen, 11, 0, get_head(mode), curses.A_REVERSE | curses.A_BOLD)
 
-def draw_foot(screen, mode):
-    ymax, xmax = screen.getmaxyx()
-    ypos = ymax-1
+def draw_foot(screen, mode, m):
+    xpos, ypos, xmax = 0, mode.ymax - 1, mode.xmax
     draw_line(screen, ypos, 0)
     attr_active = curses.A_BOLD
     attr_inactive = curses.A_BOLD | curses.A_REVERSE
 
-    attr = attr_active if mode == 1 else attr_inactive
-    screen.addstr(ypos,  0, ' 1-STATUS ', attr)
-    attr = attr_active if mode == 2 else attr_inactive
-    screen.addstr(ypos, 10, ' 2-TRAFFIC ', attr)
-    attr = attr_active if mode == 3 else attr_inactive
-    screen.addstr(ypos, 21, ' 3-HTTP ', attr)
-    attr = attr_active if mode == 4 else attr_inactive
-    screen.addstr(ypos, 29, ' 4-ERRORS ', attr)
+    for idx, mode in enumerate(SCREEN_MODES):
+        if idx == 0:
+            continue
+        if idx == 5 and READ_ONLY:
+            continue
+        attr = attr_active if idx == m else attr_inactive
+        s = ' %d-%s ' % (idx, mode.name)
+        screen.addstr(ypos, xpos, s, attr)
+        xpos += len(s)
 
-    if not READ_ONLY:
-        attr = attr_active if mode == 5 else attr_inactive
-        screen.addstr(ypos, 39, ' 5-CLI ', attr)
+    s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
+    screen.addstr(ypos, xmax - len(s) - 1, s, attr_inactive)
 
-    screen.addstr(ypos, 49, 'UP/DOWN=SCROLL H=HELP Q=QUIT', attr_inactive)
-
-def draw_stat(screen, mode, stat):
-    ypos = 0
-    for pxname, proxy in sorted(stat.items()):
-        if ypos > MAXLINES_CONTENT:
+def draw_stat(screen, mode, data):
+    attr_cursor = curses.A_REVERSE
+    idx_min = mode.ypos
+    idx_max = mode.ypos + mode.ymax - 16
+    for idx, line in enumerate(data.lines):
+        if idx < idx_min:
+            continue
+        if idx > min(idx_max, STAT_MAX_LINES):
             break
-
-        screen.addstr(ypos, 0, '>>> %s' % pxname, curses.A_BOLD)
-        ypos += 1
-
-        try:
-            frontend = proxy.services.pop('FRONTEND')
-        except:
-            frontend = None
-
-        try:
-            backend = proxy.services.pop('BACKEND')
-        except:
-            backend = None
-
-        if frontend:
-            if ypos > MAXLINES_CONTENT:
-                break
-            screen.addstr(ypos, 0, SCREEN_MODES[mode].get_stat(frontend))
-            ypos += 1
-
-        for svname, service in sorted(proxy.services.items()):
-            if ypos > MAXLINES_CONTENT:
-                break
-            screen.addstr(ypos, 0, SCREEN_MODES[mode].get_stat(service))
-            ypos += 1
-
-        if backend:
-            if ypos >= MAXLINES_CONTENT:
-                break
-            screen.addstr(ypos, 0, SCREEN_MODES[mode].get_stat(backend))
-            ypos += 1
-        ypos += 1
+        attr = line.attr | attr_cursor if idx == mode.cpos else line.attr
+        screen.addstr(idx, 0, line.format(mode), attr)
 
 def draw_help(screen):
     screen.addstr(0, 0, __doc__)
@@ -833,8 +855,7 @@ def mainloop(screen, socket, interval, mode):
 
     # Initialize the scrollable content pad
     ymax, xmax = screen.getmaxyx()
-    pad = curses.newpad(MAXLINES_CONTENT+2, SCREEN_XMAX)
-    padpos = 0
+    pad = curses.newpad(STAT_MAX_LINES + 2, SCREEN_XMAX)
 
     # Prepare status bars
     sb_conn = StatusBar()
@@ -844,47 +865,67 @@ def mainloop(screen, socket, interval, mode):
     scan = 1.0 / 100.0
 
     # Query socket and redraw the screen in the given interval
-    update = interval / scan
+    iterations = interval / scan
 
+    m = mode                    # numeric mode
+    mode = SCREEN_MODES[m]      # screen mode
+    data = HAProxyData(socket)  # data manager
+    cmax = 0                    # max cursor ypos
+
+    update = True
     i = 0
     while 1:
         ymax, xmax = screen.getmaxyx()
-        if ymax != SCREEN_MODES[mode].ymax or xmax != SCREEN_MODES[mode].xmax:
+        if ymax != mode.ymax or xmax != mode.xmax:
             if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
                 raise RuntimeError(
                         'Terminal too small, need at least %dx%d' % (
                         SCREEN_XMIN, SCREEN_YMIN))
             # Save current screen dimensions and re-calculate column widths
-            SCREEN_MODES[mode].sync_size(xmax, ymax)
+            mode.sync_size(xmax, ymax)
 
         if i == 0:
-            # Query the socket for new data and parse it
-            info = get_info(socket, sb_conn, sb_pipe)
-            stat = get_stat(socket)
+            if update:
+                # Query the socket for new data and parse it
+                data.update_info()
+                data.update_stat()
+                data.update_lines()
 
-            # Clear virtual screens
-            screen.clear()
+                # Update max cursor position
+                cmax = min(STAT_MAX_LINES, len(data.lines) - 2)
+
+                # Update status bars
+                sb_conn.update_max(int(data.info['maxconn'], 10))
+                sb_conn.update_cur(int(data.info['curconn'], 10))
+                sb_pipe.update_max(int(data.info['maxpipes'], 10))
+                sb_pipe.update_cur(int(data.info['curpipes'], 10))
+
+                # Update virtual screen
+                screen.clear()
+                draw_head(screen)
+                draw_info(screen, data, sb_conn, sb_pipe)
+                draw_cols(screen, mode)
+                draw_foot(screen, mode, m)
+                screen.noutrefresh()
+            else:
+                update = True
+
+            # Update virtual pad
             pad.clear()
 
-            # Update virtual screens
-            draw_head(screen)
-            draw_info(screen, info, stat, sb_conn, sb_pipe)
-            draw_cols(screen, mode)
-            draw_foot(screen, mode)
-
-            if mode == 0:
+            if m == 0:
                 draw_help(pad)
-            elif mode == 5:
+            elif m == 5:
                 run_cli(pad)
             else:
-                draw_stat(pad, mode, stat)
+                draw_stat(pad, mode, data)
 
-            # Update physical screen
-            screen.noutrefresh()
-            pad.noutrefresh(padpos, 0, 13, 0, ymax-3, xmax-1)
+            pad.noutrefresh(mode.ypos, 0, 13, 0, ymax-3, xmax-1)
+
+            # Update physical screen (virtual screen + pad)
             curses.doupdate()
 
-            i = update
+            i = iterations
 
         c = screen.getch()
 
@@ -896,35 +937,54 @@ def mainloop(screen, socket, interval, mode):
                 i = 0
                 continue
             if c in 'Hh?':
-                i = mode = 0
+                i = m = 0
+                mode = SCREEN_MODES[m]
                 continue
             if c in '1':
-                i, mode = 0, 1
+                i, m = 0, 1
+                mode = mode.sync_pos(SCREEN_MODES[m])
                 continue
             if c in '2':
-                i, mode = 0, 2
+                i, m = 0, 2
+                mode = mode.sync_pos(SCREEN_MODES[m])
                 continue
             if c in '3':
-                i, mode = 0, 3
+                i, m = 0, 3
+                mode = mode.sync_pos(SCREEN_MODES[m])
                 continue
             if c in '4':
-                i, mode = 0, 4
+                i, m = 0, 4
+                mode = mode.sync_pos(SCREEN_MODES[m])
                 continue
             if c in '5' and not READ_ONLY:
-                i, mode = 0, 5
+                i, m = 0, 5
+                mode = SCREEN_MODES[m]
                 continue
-        elif c == curses.KEY_UP and padpos > 0:
-            padpos -= 1
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
-        elif c == curses.KEY_DOWN and padpos < (MAXLINES_CONTENT-ymax):
-            padpos += 1
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
-        elif c == curses.KEY_PPAGE and padpos > 0:
-            padpos = max(0, padpos-10)
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
-        elif c == curses.KEY_NPAGE and padpos < (MAXLINES_CONTENT-ymax-10):
-            padpos += 10
-            pad.refresh(padpos, 0, 13, 0, ymax-3, xmax-1)
+        elif c == curses.KEY_UP and mode.cpos > 0:
+            mode.cpos -= 1
+            if mode.cpos < mode.ypos:
+                mode.ypos -= 1
+            i, update = 0, False
+            continue
+        elif c == curses.KEY_DOWN and mode.cpos < cmax:
+            mode.cpos += 1
+            if mode.cpos > mode.ypos + ymax - 16:
+                mode.ypos += 1
+            i, update = 0, False
+            continue
+        elif c == curses.KEY_PPAGE and mode.cpos > 0:
+            mode.cpos = max(0, mode.cpos - 10)
+            if mode.cpos < mode.ypos:
+                mode.ypos = max(0, mode.cpos)
+            i, update = 0, False
+            continue
+        elif c == curses.KEY_NPAGE and mode.cpos < cmax:
+            mode.cpos = min(cmax, mode.cpos + 10)
+            if mode.cpos > mode.ypos + ymax - 16:
+                mode.ypos = min(cmax - ymax + 16, mode.ypos + 10,
+                        STAT_MAX_LINES)
+            i, update = 0, False
+            continue
 
         sleep(scan)
         i -= 1
@@ -967,7 +1027,6 @@ if __name__ == '__main__':
         sys.exit(2)
 
     READ_ONLY = opts.ro
-
     socket = HAProxySocket(opts.socket)
 
     try:
