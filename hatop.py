@@ -1034,7 +1034,6 @@ def mainloop(screen, socket, interval, mode):
                 i = m = 0
                 mode = SCREEN_MODES[m]
                 mode.sync_size(screen)
-                help.refresh()
                 continue
             if c in '1':
                 i, m = 0, 1
@@ -1156,8 +1155,8 @@ if __name__ == '__main__':
     try:
         screen = Screen()
     except Exception as e:
-        log('curses error while initializing: %s' % e)
-        sys.exit(3)
+        log('error while initializing screen: %s' % e)
+        sys.exit(1)
 
     import signal
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
