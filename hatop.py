@@ -1181,6 +1181,10 @@ if __name__ == '__main__':
                     log('curses error: %s, restarting...' % e)
                     sleep(1)
 
+    except RuntimeError as e:
+        screen.reset()
+        log('runtime error: %s' % e)
+        sys.exit(1)
     except SocketError as e:
         screen.reset()
         log('socket error: %s' % e)
