@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.1'
+__version__   = '0.3.2'
 
 import os
 import sys
@@ -470,7 +470,7 @@ class Screen:
         curses_reset(self.screen)
 
     def refresh(self):
-        self.screen.refresh()
+        self.screen.noutrefresh()
 
     def clear_all(self):
         self.screen.erase()
@@ -519,6 +519,29 @@ class Screen:
             self.ymax = min(ymax, SCREEN_YMAX)
             updated = True
         return updated
+
+
+class ScreenPad:
+
+    def __init__(self, screen, xmin, xmax, ymin, ymax):
+        self.screen = screen
+        self.xmin = xmin
+        self.xmax = xmax
+        self.ymin = ymin
+        self.ymax = ymax
+        self.xpos = 0
+        self.ypos = 0
+        self.pad = curses.newpad(self.ymax + 1, self.xmax + 1)
+
+    def addstr(self, *args, **kwargs):
+        return self.pad.addstr(*args, **kwargs)
+
+    def refresh(self):
+        self.pad.noutrefresh(self.ypos, self.xpos,
+                self.screen.smin,
+                self.screen.xmin + 1,
+                self.screen.smax - 1,
+                self.screen.xmax - 1)
 
 
 class ScreenMode:
@@ -921,7 +944,7 @@ def draw_stat(screen, mode, data):
 def draw_help(screen):
     screen.addstr(0, 0, __doc__)
 
-def run_cli(pad):
+def run_cli(screen):
     pass # TODO
 
 # ------------------------------------------------------------------------- #
@@ -943,6 +966,8 @@ def mainloop(screen, socket, interval, mode):
     mode = SCREEN_MODES[m]      # screen mode
     data = HAProxyData(socket)  # data manager
 
+    help = ScreenPad(screen, 0, screen.xmax - 2, 0, __doc__.count('\n'))
+
     update = True
     i = 0
 
@@ -956,7 +981,10 @@ def mainloop(screen, socket, interval, mode):
                 # Update data
                 data.update_info()
                 data.update_stat()
-                data.update_lines()
+
+                # Update screen lines
+                if 0 < m < 5:
+                    data.update_lines()
 
                 # Update status bars
                 sb_conn.update_max(int(data.info['maxconn'], 10))
@@ -972,17 +1000,24 @@ def mainloop(screen, socket, interval, mode):
                 draw_foot(screen, mode, m)
             else:
                 # Redraw the stat display with current data
-                screen.clear_stat()
+                if 0 < m < 5:
+                    screen.clear_stat()
                 update = True
 
             if m == 0:
-                draw_help(pad)
+                draw_help(help)
             elif m == 5:
-                run_cli(pad)
+                run_cli(screen)
             else:
                 draw_stat(screen, mode, data)
 
+            # Mark screens for update
             screen.refresh()
+            if m == 0:
+                help.refresh()
+
+            # Update physical screens
+            curses.doupdate()
 
             i = iterations
 
@@ -999,6 +1034,7 @@ def mainloop(screen, socket, interval, mode):
                 i = m = 0
                 mode = SCREEN_MODES[m]
                 mode.sync_size(screen)
+                help.refresh()
                 continue
             if c in '1':
                 i, m = 0, 1
@@ -1025,36 +1061,55 @@ def mainloop(screen, socket, interval, mode):
                 mode = SCREEN_MODES[m]
                 mode.sync_size(screen)
                 continue
-        elif c == curses.KEY_UP:
-            if screen.cpos > screen.cmin:
-                screen.cpos -= 1
-            if screen.cpos == screen.cmin and screen.vmin > 0:
-                screen.vmin -= 1
-            i, update = 0, False
-            continue
-        elif c == curses.KEY_DOWN:
-            maxvmin = len(data.lines) - screen.cmax - 2
-            if screen.cpos < screen.cmax:
-                screen.cpos += 1
-            if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                screen.vmin += 1
-            i, update = 0, False
-            continue
-        elif c == curses.KEY_PPAGE:
-            if screen.cpos > screen.cmin:
-                screen.cpos = max(screen.cmin, screen.cpos - 10)
-            if screen.cpos == screen.cmin and screen.vmin > 0:
-                screen.vmin = max(0, screen.vmin - 10)
-            i, update = 0, False
-            continue
-        elif c == curses.KEY_NPAGE:
-            maxvmin = len(data.lines) - screen.cmax - 2
-            if screen.cpos < screen.cmax:
-                screen.cpos = min(screen.cmax, screen.cpos + 10)
-            if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                screen.vmin = min(maxvmin, screen.vmin + 10)
-            i, update = 0, False
-            continue
+
+        if 0 < m < 5:
+            if c == curses.KEY_UP:
+                if screen.cpos > screen.cmin:
+                    screen.cpos -= 1
+                if screen.cpos == screen.cmin and screen.vmin > 0:
+                    screen.vmin -= 1
+                i, update = 0, False
+                continue
+            if c == curses.KEY_DOWN:
+                maxvmin = len(data.lines) - screen.cmax - 2
+                if screen.cpos < screen.cmax:
+                    screen.cpos += 1
+                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
+                    screen.vmin += 1
+                i, update = 0, False
+                continue
+            if c == curses.KEY_PPAGE:
+                if screen.cpos > screen.cmin:
+                    screen.cpos = max(screen.cmin, screen.cpos - 10)
+                if screen.cpos == screen.cmin and screen.vmin > 0:
+                    screen.vmin = max(0, screen.vmin - 10)
+                i, update = 0, False
+                continue
+            if c == curses.KEY_NPAGE:
+                maxvmin = len(data.lines) - screen.cmax - 2
+                if screen.cpos < screen.cmax:
+                    screen.cpos = min(screen.cmax, screen.cpos + 10)
+                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
+                    screen.vmin = min(maxvmin, screen.vmin + 10)
+                i, update = 0, False
+                continue
+        elif m == 0:
+            if c == curses.KEY_UP and help.ypos > 0:
+                help.ypos -= 1
+                i, update = 0, False
+                continue
+            if c == curses.KEY_DOWN and help.ypos < help.ymax - screen.cmax:
+                help.ypos += 1
+                i, update = 0, False
+                continue
+            if c == curses.KEY_PPAGE and help.ypos > 0:
+                help.ypos = max(help.ymin, help.ypos - 10)
+                i, update = 0, False
+                continue
+            if c == curses.KEY_NPAGE and help.ypos < help.ymax - screen.cmax:
+                help.ypos = min(help.ymax - screen.cmax, help.ypos + 10)
+                i, update = 0, False
+                continue
 
         sleep(scan)
         i -= 1
