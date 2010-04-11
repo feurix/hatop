@@ -1,0 +1,50 @@
+# Sun Apr 11 13:47:32 CEST 2010 John Feuerstein <john@feurix.com>
+# HATop hacking...
+
+
+Screen coordinates:
+
+          xmin (0)                                        xmax (>=78)
+            |                                               |
+            |                                               |   stat
+   ymin ----+------------------ header ---------------------|    idx
+    (0)     |                                               |
+            |                                               |      0
+            |                info display                   |    [..]
+            |                                               |     42
+            |                                               |     43
+   hpos ----|------------------ columns --------------------|     44
+            |                                               |     45
+   smin ====|=  0.- cmin ===================================|==== 46 = vmin
+            |   1 \                                         |     47
+            |   2 |                                         |     48
+            |   3 |                                         |     49
+            |   4 |-> screen lines                          |     50
+            |   5 |                                         |     51
+            |   6 |                                         |     52
+            |   7 |          stat display                   |     53
+            |   8 |                                         |     54
+            |   9 |                                         |     55
+            |  10 |                                         |     56
+   cpos ----|- 11 | ------------ cursor --------------------|---- 57 - vpos
+            |  12 |                                         |     58
+            |  13 |                                         |     59
+            |  14 |                                         |     60
+            |  15 /                                         |     61
+   smax ====|= 16'- cmax ===================================|==== 62 - vmax
+            |                                               |     63
+   ymax ----+------------------- footer --------------------'    [..]
+  (>=20)
+
+
+Dynamic positions:
+
+    smin = hpos + 2
+    smax = ymax - 2
+    cmax = smax - smin
+    vpos = vmin + cpos
+    vmax = vmin + cmax
+
+- stat lines represent the whole set of parsed service stats
+- screen lines represent a subset of stat lines which are on screen
+
