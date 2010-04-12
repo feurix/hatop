@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.3'
+__version__   = '0.3.4'
 
 import os
 import sys
@@ -176,99 +176,75 @@ HAPROXY_INFO_RE = {
 'description':      re.compile('^description:\s*(?P<value>\S+)'),
 }
 
-HAPROXY_STAT_CSV = (
+HAPROXY_STAT_MAX_SERVICES = 100 # parser limit
+HAPROXY_STAT_COMMENT = '#'
+HAPROXY_STAT_SEP = ','
+HAPROXY_STAT_CSV = [
 # Note: Fields must be listed in correct order, as described in:
 # http://haproxy.1wt.eu/download/1.4/doc/configuration.txt [9.1]
 
-# Field        Type / Prefix   Description
+# TYPE  FIELD
 
-('pxname',         'string'),  # proxy name
-('svname',         'string'),  # service name
-                               # (FRONTEND / BACKEND / name or server name)
-('qcur',           'metric'),  # current queued requests
-('qmax',           'metric'),  # max queued requests
-('scur',           'metric'),  # current sessions
-('smax',           'metric'),  # max sessions
-('slim',           'metric'),  # sessions limit
-('stot',           'metric'),  # total sessions
-('bin',            'binary'),  # bytes in
-('bout',           'binary'),  # bytes out
-('dreq',           'metric'),  # denied requests
-('dresp',          'metric'),  # denied responses
-('ereq',           'metric'),  # request errors
-('econ',           'metric'),  # connection errors
-('eresp',          'metric'),  # response errors (among which srv_abrt)
-('wretr',          'metric'),  # retries (warning)
-('wredis',         'metric'),  # redispatches (warning)
-('status',         'metric'),  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-('weight',         'metric'),  # server weight (server),
-                               # total weight (backend)
-('act',            'metric'),  # server is active (server),
-                               # number of active servers (backend)
-('bck',            'metric'),  # server is backup (server),
-                               # number of backup servers (backend)
-('chkfail',        'metric'),  # number of failed checks
-('chkdown',        'metric'),  # number of UP->DOWN transitions
-('lastchg',        'seconds'), # last status change (in seconds)
-('downtime',       'seconds'), # total downtime (in seconds)
-('qlimit',         'metric'),  # queue limit
-('pid',            'metric'),  # process id
-('iid',            'metric'),  # unique proxy id
-('sid',            'metric'),  # service id (unique inside a proxy)
-('throttle',       'metric'),  # warm up status
-('lbtot',          'metric'),  # total number of times a server was selected
-('tracked',        'metric'),  # id of proxy/server if tracking is enabled
-('type',           'metric'),  # (0=frontend, 1=backend, 2=server, 3=socket)
-('rate',           'metric'),  # number of sessions per second over last
-                               # elapsed second
-('rate_lim',       'metric'),  # limit on new sessions per second
-('rate_max',       'metric'),  # max number of new sessions per second
-('check_status',   'string'),  # status of last health check, one of:
-                               #   UNK     -> unknown
-                               #   INI     -> initializing
-                               #   SOCKERR -> socket error
-                               #   L4OK    -> check passed on layer 4,
-                               #              no upper layers testing enabled
-                               #   L4TMOUT -> layer 1-4 timeout
-                               #   L4CON   -> layer 1-4 connection problem,
-                               #              for example:
-                               #              "Connection refused" (tcp rst)
-                               #              "No route to host" (icmp)
-                               #   L6OK    -> check passed on layer 6
-                               #   L6TOUT  -> layer 6 (SSL) timeout
-                               #   L6RSP   -> layer 6 invalid response,
-                               #              protocol error
-                               #   L7OK    -> check passed on layer 7
-                               #   L7OKC   -> check conditionally passed on
-                               #              layer 7, for example 404 with
-                               #              disable-on-404
-                               #   L7TOUT  -> layer 7 (HTTP/SMTP) timeout
-                               #   L7RSP   -> layer 7 invalid response,
-                               #              protocol error
-                               #   L7STS   -> layer 7 response error,
-                               #              for example HTTP 5xx
-('check_code',     'metric'),  # layer5-7 code, if available
-('check_duration', 'metric'),  # time in ms took to finish last health check
-('hrsp_1xx',       'metric'),  # http responses with 1xx code
-('hrsp_2xx',       'metric'),  # http responses with 2xx code
-('hrsp_3xx',       'metric'),  # http responses with 3xx code
-('hrsp_4xx',       'metric'),  # http responses with 4xx code
-('hrsp_5xx',       'metric'),  # http responses with 5xx code
-('hrsp_other',     'metric'),  # http responses with other codes
-                               # (protocol error)
-('hanafail',       'string'),  # failed health checks details
-('req_rate',       'metric'),  # HTTP requests per second
-('req_rate_max',   'metric'),  # max number of HTTP requests per second
-('req_tot',        'metric'),  # total number of HTTP requests received
-('cli_abrt',       'metric'),  # number of data transfers aborted by client
-('srv_abrt',       'metric'),  # number of data transfers aborted by server
-)
+(str,   'pxname'),          # proxy name
+(str,   'svname'),          # service name (FRONTEND / BACKEND / name)
+(int,   'qcur'),            # current queued requests
+(int,   'qmax'),            # max queued requests
+(int,   'scur'),            # current sessions
+(int,   'smax'),            # max sessions
+(int,   'slim'),            # sessions limit
+(int,   'stot'),            # total sessions
+(int,   'bin'),             # bytes in
+(int,   'bout'),            # bytes out
+(int,   'dreq'),            # denied requests
+(int,   'dresp'),           # denied responses
+(int,   'ereq'),            # request errors
+(int,   'econ'),            # connection errors
+(int,   'eresp'),           # response errors (among which srv_abrt)
+(int,   'wretr'),           # retries (warning)
+(int,   'wredis'),          # redispatches (warning)
+(str,   'status'),          # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+(int,   'weight'),          # server weight (server), total weight (backend)
+(int,   'act'),             # server is active (server),
+                            # number of active servers (backend)
+(int,   'bck'),             # server is backup (server),
+                            # number of backup servers (backend)
+(int,   'chkfail'),         # number of failed checks
+(int,   'chkdown'),         # number of UP->DOWN transitions
+(int,   'lastchg'),         # last status change (in seconds)
+(int,   'downtime'),        # total downtime (in seconds)
+(int,   'qlimit'),          # queue limit
+(int,   'pid'),             # process id
+(int,   'iid'),             # unique proxy id
+(int,   'sid'),             # service id (unique inside a proxy)
+(int,   'throttle'),        # warm up status
+(int,   'lbtot'),           # total number of times a server was selected
+(int,   'tracked'),         # id of proxy/server if tracking is enabled
+(int,   'type'),            # (0=frontend, 1=backend, 2=server, 3=socket)
+(int,   'rate'),            # number of sessions per second
+                            # over the last elapsed second
+(int,   'rate_lim'),        # limit on new sessions per second
+(int,   'rate_max'),        # max number of new sessions per second
+(str,   'check_status'),    # status of last health check
+(int,   'check_code'),      # layer5-7 code, if available
+(int,   'check_duration'),  # time in ms took to finish last health check
+(int,   'hrsp_1xx'),        # http responses with 1xx code
+(int,   'hrsp_2xx'),        # http responses with 2xx code
+(int,   'hrsp_3xx'),        # http responses with 3xx code
+(int,   'hrsp_4xx'),        # http responses with 4xx code
+(int,   'hrsp_5xx'),        # http responses with 5xx code
+(int,   'hrsp_other'),      # http responses with other codes (protocol error)
+(str,   'hanafail'),        # failed health checks details
+(int,   'req_rate'),        # HTTP requests per second
+(int,   'req_rate_max'),    # max number of HTTP requests per second
+(int,   'req_tot'),         # total number of HTTP requests received
+(int,   'cli_abrt'),        # number of data transfers aborted by client
+(int,   'srv_abrt'),        # number of data transfers aborted by server
+]
 HAPROXY_STAT_NUMFIELDS = len(HAPROXY_STAT_CSV)
-HAPROXY_STAT_COMMENT = '#'
-HAPROXY_STAT_SEP = ','
+HAPROXY_STAT_CSV = [(k, v) for k, v in enumerate(HAPROXY_STAT_CSV)]
 
-# All (possible) big numeric values on the screen are humanized using the
-# metric prefix set, while everything byte related is using binary prefixes.
+# All big numeric values on the screen are prefixed using the metric prefix
+# set, while everything byte related is prefixed using binary prefixes.
 # Note: If a non-byte numeric value fits into the field, we skip prefixing.
 PREFIX_BINARY = {
         1024:    'K',
@@ -376,37 +352,6 @@ class HAProxyData:
         self.lines = get_lines(self.stat)
 
 
-class HAProxyStat:
-
-    def __init__(self):
-        self.services = {}
-
-    def record(self, stat):
-        svname = stat[1]
-        try:
-            service = self.services[svname]
-        except KeyError:
-            service = HAProxyServiceStat(self)
-            self.services[svname] = service
-
-        for idx, field in enumerate(HAPROXY_STAT_CSV):
-            name, type = field
-            value = stat[idx]
-
-            # Special case
-            if name == 'status' and value == 'no check':
-                value = '-'
-            elif name == 'check_status' and service.status[1] == '-':
-                value = 'none'
-
-            setattr(service, name, (type, value))
-
-
-class HAProxyServiceStat:
-
-    def __init__(self, proxy):
-        self.proxy = proxy
-
 class Screen:
 
     def __init__(self):
@@ -434,11 +379,8 @@ class Screen:
     def refresh(self):
         self.screen.noutrefresh()
 
-    def clear_all(self):
+    def clear(self):
         self.screen.erase()
-
-    def clear_stat(self):
-        self.screen.redrawln(self.smin, self.cmax)
 
     # Proxies
     def getch(self, *args, **kwargs):
@@ -520,16 +462,15 @@ class ScreenMode:
 
 class ScreenColumn:
 
-    def __init__(self, name, header, minwidth, maxwidth, align):
+    def __init__(self, name, header, minwidth, maxwidth, align, filters={}):
         self.name = name
         self.header = header
         self.align = align
         self.minwidth = minwidth
         self.maxwidth = maxwidth
         self.width = minwidth
-
-    def __eq__(self, name):
-        return True if name == self.name else False
+        self.filters = {'always': [], 'ondemand': []}
+        self.filters.update(filters)
 
     @property
     def width(self):
@@ -544,16 +485,15 @@ class ScreenColumn:
 
 class ScreenLine:
 
-    def __init__(self):
-        self.proxy = None
-        self.service = None
-        self.value = ''
-        self.attr = 0
+    def __init__(self, stat=None, text='', attr=0):
+        self.stat = stat
+        self.text = text
+        self.attr = attr
 
     def format(self, screen, mode):
-        if self.service is None:
-            return get_cell(screen.xmax, 'L', self.value)
-        return get_line(mode, self.service)
+        if self.stat is None:
+            return get_cell(screen.xmax, 'L', self.text)
+        return get_line(mode, self.stat)
 
 
 class StatusBar:
@@ -599,6 +539,37 @@ class StatusBar:
         return bar
 
 # ------------------------------------------------------------------------- #
+#                             DISPLAY FILTERS                               #
+# ------------------------------------------------------------------------- #
+
+def human_seconds(numeric):
+    for minval, prefix in sorted(PREFIX_TIME.items(), reverse=True):
+        if (numeric/minval):
+            return '%d%s' % (numeric/minval, prefix)
+    return '%ds' % numeric
+
+def human_metric(numeric):
+    for minval, prefix in sorted(PREFIX_METRIC.items(), reverse=True):
+        if (numeric/minval):
+            return '%d%s' % (numeric/minval, prefix)
+    return str(numeric)
+
+def human_binary(numeric):
+    for minval, prefix in sorted(PREFIX_BINARY.items(), reverse=True):
+        if (numeric/minval):
+            return '%.2f%s' % (float(numeric)/float(minval), prefix)
+    return '%dB' % numeric
+
+def trim(string, length):
+    if len(string) <= length:
+        return string
+    if length == 1:
+        return string[0]
+    if length > 5:
+        return '..%s' % string[-(length-2):]
+    return '...'
+
+# ------------------------------------------------------------------------- #
 #                             SCREEN LAYOUT                                 #
 # ------------------------------------------------------------------------- #
 
@@ -623,14 +594,22 @@ SCREEN_MODES[1].columns = [
         ScreenColumn('weight',       'W',          4,      6,    'R'),
         ScreenColumn('status',       'STATUS',     6,     10,    'L'),
         ScreenColumn('check_status', 'CHECK',      7,     20,    'L'),
-        ScreenColumn('act',          'ACT',        3,      0,    'R'),
-        ScreenColumn('bck',          'BCK',        3,      0,    'R'),
-        ScreenColumn('qcur',         'QCUR',       5,      0,    'R'),
-        ScreenColumn('qmax',         'QMAX',       5,      0,    'R'),
-        ScreenColumn('scur',         'SCUR',       6,      0,    'R'),
-        ScreenColumn('smax',         'SMAX',       6,      0,    'R'),
-        ScreenColumn('slim',         'SLIM',       6,      0,    'R'),
-        ScreenColumn('stot',         'STOT',       6,      0,    'R'),
+        ScreenColumn('act',          'ACT',        3,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('bck',          'BCK',        3,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('qcur',         'QCUR',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('qmax',         'QMAX',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('scur',         'SCUR',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('smax',         'SMAX',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('slim',         'SLIM',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('stot',         'STOT',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
 ]
 
 # Mode: TRAFFIC      name            header     xmin    xmax    align
@@ -638,12 +617,18 @@ SCREEN_MODES[2].columns = [
         ScreenColumn('svname',       'NAME',      10,     50,    'L'),
         ScreenColumn('weight',       'W',          4,      6,    'R'),
         ScreenColumn('status',       'STATUS',     6,     10,    'L'),
-        ScreenColumn('lbtot',        'LBTOT',      8,      0,    'R'),
-        ScreenColumn('rate',         'RATE',       6,      0,    'R'),
-        ScreenColumn('rate_lim',     'RLIM',       6,      0,    'R'),
-        ScreenColumn('rate_max',     'RMAX',       6,      0,    'R'),
-        ScreenColumn('bin',          'BIN',       12,      0,    'R'),
-        ScreenColumn('bout',         'BOUT',      12,      0,    'R'),
+        ScreenColumn('lbtot',        'LBTOT',      8,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('rate',         'RATE',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('rate_lim',     'RLIM',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('rate_max',     'RMAX',       6,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('bin',          'BIN',       12,      0,    'R',
+            filters={'always':   [human_binary]}),
+        ScreenColumn('bout',         'BOUT',      12,      0,    'R',
+            filters={'always':   [human_binary]}),
 ]
 
 # Mode: HTTP         name            header     xmin    xmax    align
@@ -651,15 +636,24 @@ SCREEN_MODES[3].columns = [
         ScreenColumn('svname',       'NAME',      10,     50,    'L'),
         ScreenColumn('weight',       'W',          4,      6,    'R'),
         ScreenColumn('status',       'STATUS',     6,     10,    'L'),
-        ScreenColumn('req_rate',     'RATE',       5,      0,    'R'),
-        ScreenColumn('req_rate_max', 'RMAX',       5,      0,    'R'),
-        ScreenColumn('req_tot',      'RTOT',       7,      0,    'R'),
-        ScreenColumn('hrsp_1xx',     '1xx',        5,      0,    'R'),
-        ScreenColumn('hrsp_2xx',     '2xx',        5,      0,    'R'),
-        ScreenColumn('hrsp_3xx',     '3xx',        5,      0,    'R'),
-        ScreenColumn('hrsp_4xx',     '4xx',        5,      0,    'R'),
-        ScreenColumn('hrsp_5xx',     '5xx',        5,      0,    'R'),
-        ScreenColumn('hrsp_other',   '?xx',        5,      0,    'R'),
+        ScreenColumn('req_rate',     'RATE',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('req_rate_max', 'RMAX',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('req_tot',      'RTOT',       7,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('hrsp_1xx',     '1xx',        5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('hrsp_2xx',     '2xx',        5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('hrsp_3xx',     '3xx',        5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('hrsp_4xx',     '4xx',        5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('hrsp_5xx',     '5xx',        5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('hrsp_other',   '?xx',        5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
 ]
 
 # Mode: ERRORS       name            header     xmin    xmax    align
@@ -668,15 +662,24 @@ SCREEN_MODES[4].columns = [
         ScreenColumn('weight',       'W',          4,      6,    'R'),
         ScreenColumn('status',       'STATUS',     6,     10,    'L'),
         ScreenColumn('check_status', 'CHECK',      7,     20,    'L'),
-        ScreenColumn('chkfail',      'CF',         3,      0,    'R'),
-        ScreenColumn('chkdown',      'CD',         3,      0,    'R'),
-        ScreenColumn('lastchg',      'CL',         3,      0,    'R'),
-        ScreenColumn('econ',         'ECONN',      5,      0,    'R'),
-        ScreenColumn('ereq',         'EREQ',       5,      0,    'R'),
-        ScreenColumn('eresp',        'ERSP',       5,      0,    'R'),
-        ScreenColumn('dreq',         'DREQ',       5,      0,    'R'),
-        ScreenColumn('dresp',        'DRSP',       5,      0,    'R'),
-        ScreenColumn('downtime',     'DOWN',       5,      0,    'R'),
+        ScreenColumn('chkfail',      'CF',         3,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('chkdown',      'CD',         3,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('lastchg',      'CL',         3,      0,    'R',
+            filters={'always':   [human_seconds]}),
+        ScreenColumn('econ',         'ECONN',      5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('ereq',         'EREQ',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('eresp',        'ERSP',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('dreq',         'DREQ',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('dresp',        'DRSP',       5,      0,    'R',
+            filters={'ondemand': [human_metric]}),
+        ScreenColumn('downtime',     'DOWN',       5,      0,    'R',
+            filters={'always':   [human_seconds]}),
 ]
 
 # Mode: CLI          name            header     xmin    xmax    align
@@ -693,38 +696,73 @@ def log(msg):
     sys.stderr.write('%s\n' % msg)
 
 def parse_stat(iterable):
-    stats, overflow = {}, []
     pxcount = svcount = 0
+    pxstat = {} # {iid: {sid: svstat, ...}, ...}
+
+    idx_iid = get_idx('iid')
+    idx_sid = get_idx('sid')
+
     for line in iterable:
         if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
             continue # unknown format
         if line.startswith(HAPROXY_STAT_COMMENT):
             continue # comment
 
-        if svcount < STAT_MAX_SERVICES:
-            stat = line.split(HAPROXY_STAT_SEP)
-        else:
-            stat = line.split(HAPROXY_STAT_SEP, 1)
+        csv = line.split(HAPROXY_STAT_SEP)
 
-        stat = map(lambda s: s.strip(), stat)
-        pxname = stat[0]
+        # Skip parsing but keep counting...
+        if svcount > HAPROXY_STAT_MAX_SERVICES:
+            iid = int(csv[idx_iid], 10)
+            sid = int(csv[idx_sid], 10)
+            if iid not in pxstat:
+                pxcount += 1
+                svcount += 1
+            elif sid not in pxstat[iid]:
+                svcount += 1
+            continue
+
+        svstat = {} # {field: value, ...}
+
+        for idx, field in HAPROXY_STAT_CSV:
+            field_type, field_name = field
+            value = csv[idx]
+
+            try:
+                if field_type is int:
+                    if not len(value):
+                        value = 0
+                    else:
+                        value = int(value, 10)
+                elif field_type is not type(value):
+                        value = field_type(value)
+            except ValueError:
+                raise RuntimeError('garbage field: %s="%s" (need %s)' % (
+                        field_name, value, field_type))
+
+            # Special case
+            if field_name == 'status' and value == 'no check':
+                value = '-'
+            elif field_name == 'check_status' and svstat['status'] == '-':
+                value = 'none'
+
+            svstat[field_name] = value
+
+        iid = svstat['iid']
+        stype = svstat['type']
+
+        if stype == 0 or stype == 1:  # FRONTEND / BACKEND
+            id = svstat['svname']
+        else:
+            id = svstat['sid']
 
         try:
-            proxy = stats[pxname]
+            pxstat[iid][id] = svstat
         except KeyError:
-            if svcount < STAT_MAX_SERVICES:
-                proxy = HAProxyStat()
-                stats[pxname] = proxy
-                pxcount += 1
-            elif pxname not in overflow:
-                overflow.append(pxname)
-                pxcount += 1
-
-        if svcount < STAT_MAX_SERVICES:
-            proxy.record(stat)
+            pxstat[iid] = { id: svstat }
+            pxcount += 1
         svcount += 1
 
-    return stats, pxcount, svcount
+    return pxstat, pxcount, svcount
 
 def parse_info(iterable):
     info = {}
@@ -739,29 +777,8 @@ def parse_info(iterable):
                 break
     return info
 
-def human_time(seconds):
-    value = int(seconds, 10)
-    for minval, prefix in sorted(PREFIX_TIME.items(), reverse=True):
-        if (value/minval):
-            return '%d%s' % (value/minval, prefix)
-    return '%ss' % value
-
-def human_numeric(numval, si=True):
-    value = int(numval, 10)
-    P = PREFIX_METRIC if si else PREFIX_BINARY
-    for minval, prefix in sorted(P.items(), reverse=True):
-        if (value/minval):
-            return '%.1f%s' % (float(value)/minval, prefix)
-    return str(value)
-
-def trim(l, s):
-    if len(s) <= l:
-        return s
-    if l == 1:
-        return s[0]
-    if l > 5:
-        return '..%s' % s[-(l-2):]
-    return '...'
+def get_idx(field):
+    return filter(lambda x: x[1][1] == field, HAPROXY_STAT_CSV)[0][0]
 
 def get_width(width, xmax, ncols, idx):
     # distribute excess space evenly from left to right
@@ -776,7 +793,8 @@ def get_width(width, xmax, ncols, idx):
             width = width + xdiff / ncols
     return width
 
-def get_cell(width, align, s):
+def get_cell(width, align, value):
+    s = str(value)
     if align == 'L':
         s = s.ljust(width)
     elif align == 'C':
@@ -794,60 +812,57 @@ def get_head(mode):
     return SPACE.join(columns)
 
 def get_lines(stat):
-    lines = []
-    for pxname, proxy in sorted(stat.items()):
-        line = ScreenLine()
-        line.proxy = proxy
-        line.value = '>>> %s' % pxname
-        line.attr = curses.A_BOLD
-        lines.append(line)
+    screenlines = []
+
+    for iid, svstats in stat.iteritems():
+        lines = []
 
         try:
-            frontend = proxy.services.pop('FRONTEND')
-        except:
+            frontend = svstats.pop('FRONTEND')
+        except KeyError:
             frontend = None
         try:
-            backend = proxy.services.pop('BACKEND')
-        except:
+            backend = svstats.pop('BACKEND')
+        except KeyError:
             backend = None
 
         if frontend:
-            line = ScreenLine()
-            line.proxy = proxy
-            line.service = frontend
-            lines.append(line)
+            lines.append(ScreenLine(stat=frontend))
 
-        for svname, service in sorted(proxy.services.items()):
-            line = ScreenLine()
-            line.proxy = proxy
-            line.service = service
-            lines.append(line)
+        for sid, svstat in sorted(svstats.items()):
+            lines.append(ScreenLine(stat=svstat))
 
         if backend:
-            line = ScreenLine()
-            line.proxy = proxy
-            line.service = backend
-            lines.append(line)
+            lines.append(ScreenLine(stat=backend))
 
-        lines.append(ScreenLine())
+        if not len(lines):
+            continue
 
-    return lines
+        pxname = lines[0].stat['pxname']
+        screenlines.append(ScreenLine(attr=curses.A_BOLD,
+            text='>>> %s' % pxname))
+        screenlines += lines
+        screenlines.append(ScreenLine())
 
-def get_line(mode, service):
-    columns = []
+    return screenlines
+
+def get_line(mode, stat):
+    cells = []
     for column in mode.columns:
-        stat_type, stat_value = getattr(service, column.name)
-        if len(stat_value):
-            if stat_type == 'metric' and len(stat_value) > column.width:
-                stat_value = human_numeric(stat_value, si=True)
-            elif stat_type == 'binary':
-                stat_value = human_numeric(stat_value, si=False)
-            elif stat_type == 'seconds':
-                stat_value = human_time(stat_value)
-            stat_value = trim(column.width, stat_value)
-        stat_value = get_cell(column.width, column.align, stat_value)
-        columns.append(stat_value)
-    return SPACE.join(columns)
+        value = stat[column.name]
+
+        for filter in column.filters['always']:
+            value = filter(value)
+
+        if len(str(value)) > column.width:
+            for filter in column.filters['ondemand']:
+                value = filter(value)
+
+        value = str(value)
+        value = trim(value, column.width)
+        cells.append(get_cell(column.width, column.align, value))
+
+    return SPACE.join(cells)
 
 # ------------------------------------------------------------------------- #
 #                            CURSES HELPERS                                 #
@@ -924,7 +939,7 @@ def draw_cols(screen, mode):
     draw_line(screen, screen.hpos, screen.xmin, get_head(mode),
             curses.A_REVERSE | curses.A_BOLD)
 
-def draw_foot(screen, mode, m):
+def draw_foot(screen, mode, m, stat=None):
     xpos, ypos, xmax = 0, screen.ymax - 1, screen.xmax
     draw_line(screen, ypos, screen.xmin)
     attr_active = curses.A_BOLD
@@ -940,7 +955,10 @@ def draw_foot(screen, mode, m):
         screen.addstr(ypos, xpos, s, attr)
         xpos += len(s)
 
-    s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
+    if stat:
+        s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (stat['iid'], stat['sid'])
+    else:
+        s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
     screen.addstr(ypos, xmax - len(s) - 1, s, attr_inactive)
 
 def draw_stat(screen, mode, data):
@@ -991,27 +1009,27 @@ def mainloop(screen, socket, interval, mode):
                 data.update_info()
                 data.update_stat()
 
-                # Update screen lines
-                if 0 < m < 5:
-                    data.update_lines()
-
                 # Update status bars
                 sb_conn.update_max(int(data.info['maxconn'], 10))
                 sb_conn.update_cur(int(data.info['curconn'], 10))
                 sb_pipe.update_max(int(data.info['maxpipes'], 10))
                 sb_pipe.update_cur(int(data.info['curpipes'], 10))
 
-                # Update the whole screen
-                screen.clear_all()
-                draw_head(screen)
-                draw_info(screen, data, sb_conn, sb_pipe)
-                draw_cols(screen, mode)
-                draw_foot(screen, mode, m)
-            else:
-                # Redraw the stat display with current data
+                # Update screen lines
                 if 0 < m < 5:
-                    screen.clear_stat()
+                    data.update_lines()
+            else:
                 update = True
+
+            # Update screen
+            screen.clear()
+            draw_head(screen)
+            draw_info(screen, data, sb_conn, sb_pipe)
+            draw_cols(screen, mode)
+            if 0 < m < 5:
+                draw_foot(screen, mode, m, data.lines[screen.vpos].stat)
+            else:
+                draw_foot(screen, mode, m)
 
             if m == 0:
                 draw_help(help)
@@ -1025,7 +1043,7 @@ def mainloop(screen, socket, interval, mode):
             if m == 0:
                 help.refresh()
 
-            # Update physical screens
+            # Update physical screens at once (prevents flicker)
             curses.doupdate()
 
             i = iterations
