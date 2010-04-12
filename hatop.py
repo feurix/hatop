@@ -700,10 +700,10 @@ def parse_stat(iterable):
     idx_sid = get_idx('sid')
 
     for line in iterable:
-        if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
-            continue # unknown format
         if line.startswith(HAPROXY_STAT_COMMENT):
             continue # comment
+        if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
+            continue # unknown format
 
         csv = line.split(HAPROXY_STAT_SEP)
 
