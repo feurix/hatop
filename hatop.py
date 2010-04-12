@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.2'
+__version__   = '0.3.3'
 
 import os
 import sys
@@ -350,53 +350,12 @@ class HAProxySocket:
                 yield line
 
     def get_stat(self):
-        stats, overflow = {}, []
-        pxcount = svcount = 0
         self.send('show stat')
-        for line in self.recv():
-            if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
-                continue # unknown format
-            if line.startswith(HAPROXY_STAT_COMMENT):
-                continue # comment
-
-            if svcount < STAT_MAX_SERVICES:
-                stat = line.split(HAPROXY_STAT_SEP)
-            else:
-                stat = line.split(HAPROXY_STAT_SEP, 1)
-
-            stat = map(lambda s: s.strip(), stat)
-            pxname = stat[0]
-
-            try:
-                proxy = stats[pxname]
-            except KeyError:
-                if svcount < STAT_MAX_SERVICES:
-                    proxy = HAProxyStat()
-                    stats[pxname] = proxy
-                    pxcount += 1
-                elif pxname not in overflow:
-                    overflow.append(pxname)
-                    pxcount += 1
-
-            if svcount < STAT_MAX_SERVICES:
-                proxy.record(stat)
-            svcount += 1
-
-        return stats, pxcount, svcount
+        return parse_stat(self.recv())
 
     def get_info(self):
-        info = {}
         self.send('show info')
-        for line in self.recv():
-            line = line.strip()
-            if not line:
-                continue
-            for key, regexp in HAPROXY_INFO_RE.iteritems():
-                match = regexp.match(line)
-                if match:
-                    info[key] = match.group('value')
-                    break
-        return info
+        return parse_info(self.recv())
 
 
 class HAProxyData:
@@ -732,6 +691,53 @@ SCREEN_MODES[5].columns = [
 
 def log(msg):
     sys.stderr.write('%s\n' % msg)
+
+def parse_stat(iterable):
+    stats, overflow = {}, []
+    pxcount = svcount = 0
+    for line in iterable:
+        if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
+            continue # unknown format
+        if line.startswith(HAPROXY_STAT_COMMENT):
+            continue # comment
+
+        if svcount < STAT_MAX_SERVICES:
+            stat = line.split(HAPROXY_STAT_SEP)
+        else:
+            stat = line.split(HAPROXY_STAT_SEP, 1)
+
+        stat = map(lambda s: s.strip(), stat)
+        pxname = stat[0]
+
+        try:
+            proxy = stats[pxname]
+        except KeyError:
+            if svcount < STAT_MAX_SERVICES:
+                proxy = HAProxyStat()
+                stats[pxname] = proxy
+                pxcount += 1
+            elif pxname not in overflow:
+                overflow.append(pxname)
+                pxcount += 1
+
+        if svcount < STAT_MAX_SERVICES:
+            proxy.record(stat)
+        svcount += 1
+
+    return stats, pxcount, svcount
+
+def parse_info(iterable):
+    info = {}
+    for line in iterable:
+        line = line.strip()
+        if not line:
+            continue
+        for key, regexp in HAPROXY_INFO_RE.iteritems():
+            match = regexp.match(line)
+            if match:
+                info[key] = match.group('value')
+                break
+    return info
 
 def human_time(seconds):
     value = int(seconds, 10)
