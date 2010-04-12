@@ -311,14 +311,17 @@ class HAProxySocket:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def connect(self):
+        self._socket.connect(self.path)
+
+    def close(self):
         try:
             self.send('quit')
             self._socket.close()
         except:
             pass
-
-    def connect(self):
-        self._socket.connect(self.path)
 
     def send(self, cmdline):
         self._socket.sendall('%s\n' % cmdline)
