@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.4'
+__version__   = '0.3.5'
 
 import os
 import sys
@@ -1048,91 +1048,66 @@ def mainloop(screen, socket, interval, mode):
         c = screen.getch()
 
         if 0 < c < 256:
+
             c = chr(c)
             if c in 'qQ':
                 raise StopIteration()
-            if c in ' ':
-                i = 0
-                continue
-            if c in 'Hh?':
-                i = m = 0
-                mode = SCREEN_MODES[m]
-                mode.sync_size(screen)
-                continue
-            if c in '1':
-                i, m = 0, 1
-                mode = SCREEN_MODES[m]
-                mode.sync_size(screen)
-                continue
-            if c in '2':
-                i, m = 0, 2
-                mode = SCREEN_MODES[m]
-                mode.sync_size(screen)
-                continue
-            if c in '3':
-                i, m = 0, 3
-                mode = SCREEN_MODES[m]
-                mode.sync_size(screen)
-                continue
-            if c in '4':
-                i, m = 0, 4
-                mode = SCREEN_MODES[m]
-                mode.sync_size(screen)
-                continue
-            if c in '5' and not READ_ONLY:
-                i, m = 0, 5
-                mode = SCREEN_MODES[m]
-                mode.sync_size(screen)
-                continue
 
-        if 0 < m < 5:
-            if c == curses.KEY_UP:
-                if screen.cpos > screen.cmin:
-                    screen.cpos -= 1
-                if screen.cpos == screen.cmin and screen.vmin > 0:
-                    screen.vmin -= 1
-                i, update = 0, False
-                continue
-            if c == curses.KEY_DOWN:
-                maxvmin = len(data.lines) - screen.cmax - 2
-                if screen.cpos < screen.cmax:
-                    screen.cpos += 1
-                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                    screen.vmin += 1
-                i, update = 0, False
-                continue
-            if c == curses.KEY_PPAGE:
-                if screen.cpos > screen.cmin:
-                    screen.cpos = max(screen.cmin, screen.cpos - 10)
-                if screen.cpos == screen.cmin and screen.vmin > 0:
-                    screen.vmin = max(0, screen.vmin - 10)
-                i, update = 0, False
-                continue
-            if c == curses.KEY_NPAGE:
-                maxvmin = len(data.lines) - screen.cmax - 2
-                if screen.cpos < screen.cmax:
-                    screen.cpos = min(screen.cmax, screen.cpos + 10)
-                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                    screen.vmin = min(maxvmin, screen.vmin + 10)
-                i, update = 0, False
-                continue
-        elif m == 0:
-            if c == curses.KEY_UP and help.ypos > 0:
-                help.ypos -= 1
-                i, update = 0, False
-                continue
-            if c == curses.KEY_DOWN and help.ypos < help.ymax - screen.cmax:
-                help.ypos += 1
-                i, update = 0, False
-                continue
-            if c == curses.KEY_PPAGE and help.ypos > 0:
-                help.ypos = max(help.ymin, help.ypos - 10)
-                i, update = 0, False
-                continue
-            if c == curses.KEY_NPAGE and help.ypos < help.ymax - screen.cmax:
-                help.ypos = min(help.ymax - screen.cmax, help.ypos + 10)
-                i, update = 0, False
-                continue
+            if c != str(m) or (c in 'Hh?' and m != 0):
+                if c in 'Hh?':
+                    m = 0
+                elif c in '1234':
+                    m = int(c)
+                elif c in '5' and not READ_ONLY:
+                    m = 5
+
+                # Force screen update with existing data
+                if c in 'Hh?12345':
+                    i = 0
+                    update = False
+                    mode = SCREEN_MODES[m]
+                    mode.sync_size(screen)
+                    continue
+
+        elif c in [curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE,
+                curses.KEY_NPAGE]:
+            if 0 < m < 5:
+                if c == curses.KEY_UP:
+                    if screen.cpos > screen.cmin:
+                        screen.cpos -= 1
+                    if screen.cpos == screen.cmin and screen.vmin > 0:
+                        screen.vmin -= 1
+                elif c == curses.KEY_DOWN:
+                    maxvmin = len(data.lines) - screen.cmax - 2
+                    if screen.cpos < screen.cmax:
+                        screen.cpos += 1
+                    if screen.cpos == screen.cmax and screen.vmin < maxvmin:
+                        screen.vmin += 1
+                elif c == curses.KEY_PPAGE:
+                    if screen.cpos > screen.cmin:
+                        screen.cpos = max(screen.cmin, screen.cpos - 10)
+                    if screen.cpos == screen.cmin and screen.vmin > 0:
+                        screen.vmin = max(0, screen.vmin - 10)
+                elif c == curses.KEY_NPAGE:
+                    maxvmin = len(data.lines) - screen.cmax - 2
+                    if screen.cpos < screen.cmax:
+                        screen.cpos = min(screen.cmax, screen.cpos + 10)
+                    if screen.cpos == screen.cmax and screen.vmin < maxvmin:
+                        screen.vmin = min(maxvmin, screen.vmin + 10)
+            elif m == 0:
+                if c == curses.KEY_UP and help.ypos > 0:
+                    help.ypos -= 1
+                elif c == curses.KEY_DOWN and help.ypos < help.ymax - screen.cmax:
+                    help.ypos += 1
+                elif c == curses.KEY_PPAGE and help.ypos > 0:
+                    help.ypos = max(help.ymin, help.ypos - 10)
+                elif c == curses.KEY_NPAGE and help.ypos < help.ymax - screen.cmax:
+                    help.ypos = min(help.ymax - screen.cmax, help.ypos + 10)
+
+            # Force screen update with existing data
+            i = 0
+            update = False
+            continue
 
         sleep(scan)
         i -= 1
