@@ -152,10 +152,7 @@ SCREEN_XMIN = 78
 SCREEN_YMIN = 20
 SCREEN_XMAX = 200
 SCREEN_YMAX = 200
-SCREEN_YPOS = 11
-
-# Upper limit of parsed service stats
-STAT_MAX_SERVICES = 100
+SCREEN_HPOS = 11
 
 
 HAPROXY_INFO_RE = {
@@ -363,7 +360,7 @@ class Screen:
         self.vmin = 0
         self.cmin = 0
         self.cpos = 0
-        self.hpos = SCREEN_YPOS
+        self.hpos = SCREEN_HPOS
         self.init()
 
     def init(self):
