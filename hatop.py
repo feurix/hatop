@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.6'
+__version__   = '0.3.7'
 
 import curses
 import os
@@ -509,7 +509,10 @@ class StatusBar:
         self.curval = value
 
     def update_max(self, value):
-        self.maxval = value if value >= self.minval else self.minval
+        if value >= self.minval:
+            self.maxval = value
+        else:
+            self.maxval = self.minval
 
     def __str__(self):
         if self.status:
@@ -518,7 +521,10 @@ class StatusBar:
         space = self.width - len(self.prepend) - len(self.append)
         span = self.maxval - self.minval
 
-        used = min(float(self.curval) / float(span), 1.0) if span else 0.0
+        if span:
+            used = min(float(self.curval) / float(span), 1.0)
+        else:
+            used = 0.0
         free = 1.0 - used
 
         # 100% equals full bar width, ignoring status text within the bar
@@ -907,9 +913,13 @@ def draw_info(screen, data, sb_conn, sb_pipe):
                 int(data.info['procn'], 10),
             ), curses.A_BOLD)
 
+    node = data.info['node']
+    if not node:
+        node = 'unknown'
+
     screen.addstr(screen.ymin + 4, screen.xmin + 2,
             '       Node: %s (uptime %s)' % (
-                data.info['node'] if data.info['node'] else 'unknown',
+                node,
                 data.info['uptime'],
             ))
 
@@ -943,7 +953,11 @@ def draw_foot(screen, mode, m, stat=None):
             continue
         if idx == 5 and READ_ONLY:
             continue
-        attr = attr_active if idx == m else attr_inactive
+        if idx == m:
+            attr = attr_active
+        else:
+            attr = attr_inactive
+
         s = ' %d-%s ' % (idx, mode.name)
         screen.addstr(ypos, xpos, s, attr)
         xpos += len(s)
@@ -957,7 +971,10 @@ def draw_foot(screen, mode, m, stat=None):
 def draw_stat(screen, mode, data):
     attr_cursor = curses.A_REVERSE
     for idx, line in enumerate(data.lines[screen.vmin:screen.vmax+1]):
-        attr = line.attr | attr_cursor if idx == screen.cpos else line.attr
+        if idx == screen.cpos:
+            attr = line.attr | curses.A_REVERSE
+        else:
+            attr = line.attr
         screen.addstr(screen.smin + idx, screen.xmin,
                 line.format(screen, mode), attr)
 
@@ -1160,27 +1177,29 @@ if __name__ == '__main__':
         socket.connect()
         screen.setup()
 
-        while True:
-            try:
-                mainloop(screen, socket, opts.interval, opts.mode)
-            except StopIteration:
-                break
-            except KeyboardInterrupt:
-                break
-            except CursesError, e:
-                screen.reset()
-                log('curses error: %s, restarting...' % e)
-                time.sleep(1)
-                screen.recover()
+        try:
+            while True:
+                try:
+                    mainloop(screen, socket, opts.interval, opts.mode)
+                except StopIteration:
+                    break
+                except KeyboardInterrupt:
+                    break
+                except CursesError, e:
+                    screen.reset()
+                    log('curses error: %s, restarting...' % e)
+                    time.sleep(1)
+                    screen.recover()
 
-    except RuntimeError, e:
-        screen.reset()
-        log('runtime error: %s' % e)
-        sys.exit(1)
-    except SocketError, e:
-        screen.reset()
-        log('socket error: %s' % e)
-        sys.exit(2)
+        except RuntimeError, e:
+            screen.reset()
+            log('runtime error: %s' % e)
+            sys.exit(1)
+        except SocketError, e:
+            screen.reset()
+            log('socket error: %s' % e)
+            sys.exit(2)
+
     finally:
         screen.reset()
         socket.close()
