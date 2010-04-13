@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.7'
+__version__   = '0.4.0'
 
 import curses
 import os
@@ -144,6 +144,8 @@ import time
 HAPROXY_CLI_BUFSIZE = 4096
 HAPROXY_CLI_TIMEOUT = 60
 HAPROXY_CLI_PROMPT = '> '
+HAPROXY_CLI_CMD_SEP = ';'
+HAPROXY_CLI_CMD_TIMEOUT = 1
 HAPROXY_CLI_MAXLINES = 1000
 
 # Screen setup
@@ -172,7 +174,9 @@ HAPROXY_INFO_RE = {
 'description':      re.compile('^description:\s*(?P<value>\S+)'),
 }
 
-HAPROXY_STAT_MAX_SERVICES = 100 # parser limit
+HAPROXY_STAT_FILTER_RE = re.compile(
+        '^(?P<iid>-?\d+)\s+(?P<type>-?\d+)\s+(?P<sid>-?\d+)$')
+HAPROXY_STAT_MAX_SERVICES = 100
 HAPROXY_STAT_COMMENT = '#'
 HAPROXY_STAT_SEP = ','
 HAPROXY_STAT_CSV = [
@@ -258,7 +262,6 @@ PREFIX_TIME = {
 }
 
 SPACE = ' '
-READ_ONLY = False
 
 # ------------------------------------------------------------------------- #
 #                           CLASS DEFINITIONS                               #
@@ -266,16 +269,17 @@ READ_ONLY = False
 
 class HAProxySocket:
 
-    def __init__(self, path):
+    def __init__(self, path, readonly=False):
         self.path = path
+        self.ro = readonly
 
         from socket import socket, AF_UNIX, SOCK_STREAM
         self._socket = socket(AF_UNIX, SOCK_STREAM)
-        self._socket.settimeout(1)
 
     def connect(self):
         # Initialize interactive socket connection
         self._socket.connect(self.path)
+        self._socket.settimeout(HAPROXY_CLI_CMD_TIMEOUT)
         self.send('prompt')
         self.wait()
         self.send('set timeout cli %d' % HAPROXY_CLI_TIMEOUT)
@@ -317,36 +321,54 @@ class HAProxySocket:
                 linecount += 1
                 yield line
 
-    def get_stat(self):
-        self.send('show stat')
-        return parse_stat(self.recv())
 
-    def get_info(self):
-        self.send('show info')
-        return parse_info(self.recv())
-
-
-class HAProxyData:
+class HAProxySocketData:
 
     def __init__(self, socket):
         self.socket = socket
-        self.pxcount = self.svcount = 0
-        self.info = self.stat = {}
-        self.lines = []
+        self.pxcount = 0
+        self.svcount = 0
+        self.info = {}
+        self.stat = {}
+        self._filters = set()
+        self._filterstr = str()
+
+    def add_filters(self, filterstrings):
+        for filter in filterstrings:
+            match = HAPROXY_STAT_FILTER_RE.match(filter)
+            if not match:
+                raise ValueError('invalid filter: %s' % filter)
+            self._filters.add((
+                    int(match.group('iid'), 10),
+                    int(match.group('type'), 10),
+                    int(match.group('sid'), 10),
+            ))
+        # Assemble a new filter query string for fast retrival later on:
+        # "show stat <iid> <type> <sid>;show stat <iid> <type> <sid>;..."
+        self._filterstr = HAPROXY_CLI_CMD_SEP.join((
+            'show stat %s' % SPACE.join(str(i) for i in filter)
+            for filter in self._filters))
 
     def update_info(self):
-        self.info = self.socket.get_info()
+        self.socket.send('show info')
+        iterable = self.socket.recv()
+        self.info = parse_info(iterable)
 
     def update_stat(self):
-        self.stat, self.pxcount, self.svcount = self.socket.get_stat()
-
-    def update_lines(self):
-        self.lines = get_lines(self.stat)
+        self.socket.send(self._filterstr or 'show stat')
+        iterable = self.socket.recv()
+        self.stat, self.pxcount, self.svcount = parse_stat(iterable)
 
 
 class Screen:
 
-    def __init__(self):
+    def __init__(self, data, mid=1):
+        self.data = data
+        self.modes = SCREEN_MODES
+        self.sb_conn = StatusBar()
+        self.sb_pipe = StatusBar()
+        self.lines = []
+        self.screen = None
         self.xmin = 0
         self.xmax = SCREEN_XMIN
         self.ymin = 0
@@ -355,14 +377,19 @@ class Screen:
         self.cmin = 0
         self.cpos = 0
         self.hpos = SCREEN_HPOS
-        self.screen = curses_init()
-        curses.def_prog_mode()
+        self.help = ScreenPad(self, 0, self.xmax - 2, 0, __doc__.count('\n'))
+
+        self._mid = mid
+        self._mode = self.modes[mid]
 
     def setup(self):
+        self.screen = curses_init()
         self.screen.keypad(1)
         self.screen.nodelay(1)
         self.screen.idlok(1)
         self.screen.move(0, 0)
+        curses.def_prog_mode()
+        self.help.init()
 
     def reset(self):
         curses_reset(self.screen)
@@ -372,9 +399,25 @@ class Screen:
 
     def refresh(self):
         self.screen.noutrefresh()
+        if self.mid == 0:
+            self.help.refresh()
+        curses.doupdate()
 
     def clear(self):
         self.screen.erase()
+
+    @property
+    def mid(self):
+        return self._mid
+
+    @property
+    def mode(self):
+        return self._mode
+
+    def switch_mode(self, mid):
+        mode = self.modes[mid]
+        mode.sync_size(self)
+        self._mid, self._mode = mid, mode
 
     # Proxies
     def getch(self, *args, **kwargs):
@@ -393,8 +436,12 @@ class Screen:
         return self.ymax - 2
 
     @property
+    def span(self):
+        return self.smax - self.smin
+
+    @property
     def cmax(self):
-        return self.smax - self.smin - 1
+        return min(self.span, len(self.lines)) - 1
 
     @property
     def vpos(self):
@@ -402,7 +449,11 @@ class Screen:
 
     @property
     def vmax(self):
-        return self.vmin + self.cmax
+        return self.vmin + self.cmax + 1
+
+    @property
+    def screenlines(self):
+        return enumerate(self.lines[self.vmin:self.vmax])
 
     def sync_size(self):
         updated = False
@@ -416,8 +467,128 @@ class Screen:
         if ymax != self.ymax:
             self.ymax = min(ymax, SCREEN_YMAX)
             updated = True
-        return updated
+        if updated:
+            self.mode.sync_size(self)
 
+    def update_data(self):
+        self.data.update_info()
+        self.data.update_stat()
+
+    def update_bars(self):
+        self.sb_conn.update_max(int(self.data.info['maxconn'], 10))
+        self.sb_conn.update_cur(int(self.data.info['curconn'], 10))
+        self.sb_pipe.update_max(int(self.data.info['maxpipes'], 10))
+        self.sb_pipe.update_cur(int(self.data.info['curpipes'], 10))
+
+    def update_lines(self):
+        if 0 < self.mid < 5:
+            self.lines = get_screenlines(self.data.stat)
+        if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
+            self.lines.append(ScreenLine(attr=curses.A_BOLD,
+                text='Warning: You have reached the stat parser limit! (%d)'
+                            % HAPROXY_STAT_MAX_SERVICES))
+            self.lines.append(ScreenLine(
+                text='Use --filter to parse specific service stats only.'))
+            self.lines.append(ScreenLine())
+
+    def draw_line(self, ypos, xpos=0, text=None,
+            attr=curses.A_REVERSE):
+        self.hline(ypos, self.xmin, SPACE, self.xmax, attr)
+        if text:
+            self.addstr(ypos, self.xmin + xpos, text, attr)
+
+    def draw_head(self):
+        self.draw_line(self.ymin)
+        attr = curses.A_REVERSE | curses.A_BOLD
+        self.addstr(self.ymin, self.xmin,
+                time.ctime().rjust(self.xmax - 1), attr)
+        self.addstr(self.ymin, self.xmin + 1,
+                'hatop version ' + __version__, attr)
+
+    def draw_info(self):
+        self.addstr(self.ymin + 2, self.xmin + 2,
+                '%s Version: %s  (released: %s)' % (
+                    self.data.info['software_name'],
+                    self.data.info['software_version'],
+                    self.data.info['software_release'],
+                ), curses.A_BOLD)
+        self.addstr(self.ymin + 2, self.xmin + 56,
+                'PID: %d (proc %d)' % (
+                    int(self.data.info['pid'], 10),
+                    int(self.data.info['procn'], 10),
+                ), curses.A_BOLD)
+        self.addstr(self.ymin + 4, self.xmin + 2,
+                '       Node: %s (uptime %s)' % (
+                    self.data.info['node'] or 'unknown',
+                    self.data.info['uptime'],
+                ))
+        self.addstr(self.ymin + 6, self.xmin + 2,
+                '      Pipes: %s'  % self.sb_pipe)
+        self.addstr(self.ymin + 7, self.xmin + 2,
+                'Connections: %s'  % self.sb_conn)
+        self.addstr(self.ymin + 9, self.xmin + 2,
+                'Procs: %3d   Tasks: %5d    Queue: %5d    '
+                'Proxies: %3d   Services: %4d' % (
+                    int(self.data.info['nproc'], 10),
+                    int(self.data.info['tasks'], 10),
+                    int(self.data.info['runqueue'], 10),
+                    self.data.pxcount,
+                    self.data.svcount,
+                ))
+
+    def draw_cols(self):
+        self.draw_line(self.hpos, text=self.mode.head,
+                attr=curses.A_REVERSE | curses.A_BOLD)
+
+    def draw_foot(self):
+        xpos = self.xmin
+        ypos = self.ymax - 1
+        self.draw_line(ypos)
+        attr_active = curses.A_BOLD
+        attr_inactive = curses.A_BOLD | curses.A_REVERSE
+
+        for m, mode in enumerate(self.modes):
+            if m == 0:
+                continue
+            if m == 5 and self.data.socket.ro:
+                continue
+            if m == self.mid:
+                attr = attr_active
+            else:
+                attr = attr_inactive
+
+            s = ' %d-%s ' % (m, mode.name)
+            self.addstr(ypos, xpos, s, attr)
+            xpos += len(s)
+
+        cline = self.lines[self.vpos]
+        if 0 < self.mid < 5 and cline.stat:
+            s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (
+                    cline.stat['iid'], cline.stat['sid'])
+        else:
+            s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
+        self.addstr(ypos, self.xmax - len(s) - 1, s, attr_inactive)
+
+    def draw_stat(self):
+        attr_cursor = curses.A_REVERSE
+        for idx, line in self.screenlines:
+            if idx == self.cpos:
+                attr = line.attr | curses.A_REVERSE
+            else:
+                attr = line.attr
+            if not line.stat:
+                screenline = get_cell(self.xmax, 'L', line.text)
+            else:
+                screenline = get_screenline(self.mode, line.stat)
+            self.addstr(self.smin + idx, self.xmin, screenline, attr)
+
+    def draw_mode(self):
+        if self.mid == 0:
+            self.help.draw_text(__doc__)
+        elif self.mid == 5:
+            run_cli(self)
+        else:
+            self.draw_stat()
 
 class ScreenPad:
 
@@ -429,6 +600,8 @@ class ScreenPad:
         self.ymax = ymax
         self.xpos = 0
         self.ypos = 0
+
+    def init(self):
         self.pad = curses.newpad(self.ymax + 1, self.xmax + 1)
 
     def addstr(self, *args, **kwargs):
@@ -441,12 +614,18 @@ class ScreenPad:
                 self.screen.smax - 1,
                 self.screen.xmax - 1)
 
+    def draw_text(self, text):
+        self.addstr(0, 0, text)
 
 class ScreenMode:
 
     def __init__(self, name):
         self.name = name
         self.columns = []
+
+    @property
+    def head(self):
+        return get_head(self)
 
     def sync_size(self, screen):
         for idx, column in enumerate(self.columns):
@@ -483,11 +662,6 @@ class ScreenLine:
         self.stat = stat
         self.text = text
         self.attr = attr
-
-    def format(self, screen, mode):
-        if self.stat is None:
-            return get_cell(screen.xmax, 'L', self.text)
-        return get_line(mode, self.stat)
 
 
 class StatusBar:
@@ -688,6 +862,9 @@ SCREEN_MODES[5].columns = [
                                          SCREEN_XMIN,      0,    'L'),
 ]
 
+#SCREEN_MODES = [(mid, mode) for mid, mode in enumerate(SCREEN_MODES)]
+
+
 # ------------------------------------------------------------------------- #
 #                                HELPERS                                    #
 # ------------------------------------------------------------------------- #
@@ -703,6 +880,8 @@ def parse_stat(iterable):
     idx_sid = get_idx('sid')
 
     for line in iterable:
+        if not line:
+            continue
         if line.startswith(HAPROXY_STAT_COMMENT):
             continue # comment
         if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
@@ -811,7 +990,7 @@ def get_head(mode):
         columns.append(s)
     return SPACE.join(columns)
 
-def get_lines(stat):
+def get_screenlines(stat):
     screenlines = []
 
     for iid, svstats in stat.iteritems():
@@ -846,7 +1025,7 @@ def get_lines(stat):
 
     return screenlines
 
-def get_line(mode, stat):
+def get_screenline(mode, stat):
     cells = []
     for column in mode.columns:
         value = stat[column.name]
@@ -886,177 +1065,40 @@ def curses_reset(screen):
     curses.nocbreak()
     curses.endwin()
 
-def draw_line(screen, ypos, xpos, text=None, attr=curses.A_REVERSE):
-    screen.hline(ypos, screen.xmin, SPACE, screen.xmax, attr)
-    if text:
-        screen.addstr(ypos, xpos, text, attr)
-
-def draw_head(screen):
-    draw_line(screen, screen.ymin, screen.xmin)
-    attr = curses.A_REVERSE | curses.A_BOLD
-    screen.addstr(screen.ymin, screen.xmin,
-            time.ctime().rjust(screen.xmax - 1), attr)
-    screen.addstr(screen.ymin, screen.xmin + 1,
-            'hatop version ' + __version__, attr)
-
-def draw_info(screen, data, sb_conn, sb_pipe):
-    screen.addstr(screen.ymin + 2, screen.xmin + 2,
-            '%s Version: %s  (released: %s)' % (
-                data.info['software_name'],
-                data.info['software_version'],
-                data.info['software_release'],
-            ), curses.A_BOLD)
-
-    screen.addstr(screen.ymin + 2, screen.xmin + 56,
-            'PID: %d (proc %d)' % (
-                int(data.info['pid'], 10),
-                int(data.info['procn'], 10),
-            ), curses.A_BOLD)
-
-    node = data.info['node']
-    if not node:
-        node = 'unknown'
-
-    screen.addstr(screen.ymin + 4, screen.xmin + 2,
-            '       Node: %s (uptime %s)' % (
-                node,
-                data.info['uptime'],
-            ))
-
-    screen.addstr(screen.ymin + 6, screen.xmin + 2,
-            '      Pipes: %s'  % sb_pipe)
-    screen.addstr(screen.ymin + 7, screen.xmin + 2,
-            'Connections: %s'  % sb_conn)
-
-    screen.addstr(screen.ymin + 9, screen.xmin + 2,
-            'Procs: %3d   Tasks: %5d    Queue: %5d    '
-            'Proxies: %3d   Services: %4d' % (
-                int(data.info['nproc'], 10),
-                int(data.info['tasks'], 10),
-                int(data.info['runqueue'], 10),
-                data.pxcount,
-                data.svcount,
-            ))
-
-def draw_cols(screen, mode):
-    draw_line(screen, screen.hpos, screen.xmin, get_head(mode),
-            curses.A_REVERSE | curses.A_BOLD)
-
-def draw_foot(screen, mode, m, stat=None):
-    xpos, ypos, xmax = 0, screen.ymax - 1, screen.xmax
-    draw_line(screen, ypos, screen.xmin)
-    attr_active = curses.A_BOLD
-    attr_inactive = curses.A_BOLD | curses.A_REVERSE
-
-    for idx, mode in enumerate(SCREEN_MODES):
-        if idx == 0:
-            continue
-        if idx == 5 and READ_ONLY:
-            continue
-        if idx == m:
-            attr = attr_active
-        else:
-            attr = attr_inactive
-
-        s = ' %d-%s ' % (idx, mode.name)
-        screen.addstr(ypos, xpos, s, attr)
-        xpos += len(s)
-
-    if stat:
-        s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (stat['iid'], stat['sid'])
-    else:
-        s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
-    screen.addstr(ypos, xmax - len(s) - 1, s, attr_inactive)
-
-def draw_stat(screen, mode, data):
-    attr_cursor = curses.A_REVERSE
-    for idx, line in enumerate(data.lines[screen.vmin:screen.vmax+1]):
-        if idx == screen.cpos:
-            attr = line.attr | curses.A_REVERSE
-        else:
-            attr = line.attr
-        screen.addstr(screen.smin + idx, screen.xmin,
-                line.format(screen, mode), attr)
-
-def draw_help(screen):
-    screen.addstr(0, 0, __doc__)
-
-def run_cli(screen):
-    pass # TODO
-
 # ------------------------------------------------------------------------- #
 #                               MAIN LOOP                                   #
 # ------------------------------------------------------------------------- #
 
-def mainloop(screen, socket, interval, mode):
-    # Prepare status bars
-    sb_conn = StatusBar()
-    sb_pipe = StatusBar()
-
+def mainloop(socket, interval, screen):
     # Sleep time of each iteration in seconds
     scan = 1.0 / 100.0
-
     # Query socket and redraw the screen in the given interval
     iterations = interval / scan
 
-    m = mode                    # numeric mode
-    mode = SCREEN_MODES[m]      # screen mode
-    data = HAProxyData(socket)  # data manager
-
-    help = ScreenPad(screen, 0, screen.xmax - 2, 0, __doc__.count('\n'))
-
     update = True
-    i = 0
+    i = iterations
 
     while True:
+        screen.sync_size()
 
-        if screen.sync_size():
-            mode.sync_size(screen) # re-calculate column widths
-
-        if i == 0:
+        if i == iterations:
             if update:
-                # Update data
-                data.update_info()
-                data.update_stat()
-
-                # Update status bars
-                sb_conn.update_max(int(data.info['maxconn'], 10))
-                sb_conn.update_cur(int(data.info['curconn'], 10))
-                sb_pipe.update_max(int(data.info['maxpipes'], 10))
-                sb_pipe.update_cur(int(data.info['curpipes'], 10))
-
-                # Update screen lines
-                if 0 < m < 5:
-                    data.update_lines()
+                screen.update_data()
+                screen.update_bars()
+                screen.update_lines()
             else:
                 update = True
 
             # Update screen
             screen.clear()
-            draw_head(screen)
-            draw_info(screen, data, sb_conn, sb_pipe)
-            draw_cols(screen, mode)
-            if 0 < m < 5:
-                draw_foot(screen, mode, m, data.lines[screen.vpos].stat)
-            else:
-                draw_foot(screen, mode, m)
-
-            if m == 0:
-                draw_help(help)
-            elif m == 5:
-                run_cli(screen)
-            else:
-                draw_stat(screen, mode, data)
-
-            # Mark screens for update
+            screen.draw_head()
+            screen.draw_info()
+            screen.draw_cols()
+            screen.draw_mode()
+            screen.draw_foot()
             screen.refresh()
-            if m == 0:
-                help.refresh()
 
-            # Update physical screens at once (prevents flicker)
-            curses.doupdate()
-
-            i = iterations
+            i = 0
 
         c = screen.getch()
 
@@ -1066,32 +1108,30 @@ def mainloop(screen, socket, interval, mode):
             if c in 'qQ':
                 raise StopIteration()
 
-            if c != str(m) or (c in 'Hh?' and m != 0):
+            if c != str(screen.mid) or (c in 'Hh?' and screen.mid != 0):
                 if c in 'Hh?':
-                    m = 0
+                    screen.switch_mode(0)
                 elif c in '1234':
-                    m = int(c)
-                elif c in '5' and not READ_ONLY:
-                    m = 5
+                    screen.switch_mode(int(c))
+                elif c in '5' and not socket.ro:
+                    screen.switch_mode(5)
 
                 # Force screen update with existing data
                 if c in 'Hh?12345':
-                    i = 0
+                    i = iterations
                     update = False
-                    mode = SCREEN_MODES[m]
-                    mode.sync_size(screen)
                     continue
 
         elif c in [curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE,
                 curses.KEY_NPAGE]:
-            if 0 < m < 5:
+            if 0 < screen.mid < 5:
                 if c == curses.KEY_UP:
                     if screen.cpos > screen.cmin:
                         screen.cpos -= 1
                     if screen.cpos == screen.cmin and screen.vmin > 0:
                         screen.vmin -= 1
                 elif c == curses.KEY_DOWN:
-                    maxvmin = len(data.lines) - screen.cmax - 2
+                    maxvmin = len(screen.lines) - screen.cmax - 2
                     if screen.cpos < screen.cmax:
                         screen.cpos += 1
                     if screen.cpos == screen.cmax and screen.vmin < maxvmin:
@@ -1102,47 +1142,59 @@ def mainloop(screen, socket, interval, mode):
                     if screen.cpos == screen.cmin and screen.vmin > 0:
                         screen.vmin = max(0, screen.vmin - 10)
                 elif c == curses.KEY_NPAGE:
-                    maxvmin = len(data.lines) - screen.cmax - 2
+                    maxvmin = len(screen.lines) - screen.cmax - 2
                     if screen.cpos < screen.cmax:
                         screen.cpos = min(screen.cmax, screen.cpos + 10)
                     if screen.cpos == screen.cmax and screen.vmin < maxvmin:
                         screen.vmin = min(maxvmin, screen.vmin + 10)
-            elif m == 0:
-                if c == curses.KEY_UP and help.ypos > 0:
-                    help.ypos -= 1
-                elif c == curses.KEY_DOWN and help.ypos < help.ymax - screen.cmax:
-                    help.ypos += 1
-                elif c == curses.KEY_PPAGE and help.ypos > 0:
-                    help.ypos = max(help.ymin, help.ypos - 10)
-                elif c == curses.KEY_NPAGE and help.ypos < help.ymax - screen.cmax:
-                    help.ypos = min(help.ymax - screen.cmax, help.ypos + 10)
+            elif screen.mid == 0:
+                if c == curses.KEY_UP and screen.help.ypos > 0:
+                    screen.help.ypos -= 1
+                elif c == curses.KEY_DOWN and \
+                        screen.help.ypos < screen.help.ymax - screen.span:
+                    screen.help.ypos += 1
+                elif c == curses.KEY_PPAGE and screen.help.ypos > 0:
+                    screen.help.ypos = max(screen.help.ymin,
+                            screen.help.ypos - 10)
+                elif c == curses.KEY_NPAGE and \
+                        screen.help.ypos < screen.help.ymax - screen.span:
+                    screen.help.ypos = min(screen.help.ymax - screen.span,
+                            screen.help.ypos + 10)
 
             # Force screen update with existing data
-            i = 0
+            i = iterations
             update = False
             continue
 
         time.sleep(scan)
-        i -= 1
+        i += 1
 
 
 if __name__ == '__main__':
 
-    from optparse import OptionParser
+    from optparse import OptionParser, OptionGroup
 
     version  = 'hatop version %s' % __version__
     usage    = 'Usage: hatop [options]'
 
     parser = OptionParser(usage=usage, version=version)
 
-    parser.add_option('-s', '--unix-socket', type='str', dest='socket',
-            help='path to the haproxy unix socket (mandatory)')
-    parser.add_option('-n', '--read-only', action='store_true', dest='ro',
-            help='disable the cli and query for stats only')
-    parser.add_option('-i', '--update-interval', type='int', dest='interval',
+    opts = OptionGroup(parser, 'Mandatory')
+    opts.add_option('-s', '--unix-socket', dest='socket',
+            help='path to the haproxy unix socket')
+    parser.add_option_group(opts)
+
+    opts = OptionGroup(parser, 'Optional')
+    opts.add_option('-f', '--filter', action='append', dest='filter',
+            help='stat filter in format "<iid> <type> <sid>"       '
+            '     (may be given multiple times)')
+    opts.add_option('-i', '--update-interval', type='int', dest='interval',
             help='update interval in seconds (1-30, default: 1)', default=1)
-    parser.add_option('-m', '--mode', type='int', dest='mode',
+    opts.add_option('-m', '--mode', type='int', dest='mode',
             help='start in specific mode (1-5, default: 1)', default=1)
+    opts.add_option('-n', '--read-only', action='store_true', dest='ro',
+            help='disable the cli and query for stats only')
+    parser.add_option_group(opts)
 
     opts, args = parser.parse_args()
 
@@ -1162,16 +1214,22 @@ if __name__ == '__main__':
         log('insufficient permissions for socket path %s' % opts.socket)
         sys.exit(2)
 
-    READ_ONLY = opts.ro
+    socket = HAProxySocket(opts.socket, opts.ro)
+    data = HAProxySocketData(socket)
+    screen = Screen(data, opts.mode)
+
+    if opts.filter:
+        try:
+            data.add_filters(opts.filter)
+        except ValueError, e:
+            log(e)
+            sys.exit(1)
 
     import signal
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
 
     from socket import error as SocketError
     from _curses import error as CursesError
-
-    socket = HAProxySocket(opts.socket)
-    screen = Screen()
 
     try:
         socket.connect()
@@ -1180,7 +1238,7 @@ if __name__ == '__main__':
         try:
             while True:
                 try:
-                    mainloop(screen, socket, opts.interval, opts.mode)
+                    mainloop(socket, opts.interval, screen)
                 except StopIteration:
                     break
                 except KeyboardInterrupt:
