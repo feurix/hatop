@@ -128,14 +128,13 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.3.5'
+__version__   = '0.3.6'
 
-import os
-import sys
-import re
 import curses
-
-from time import sleep, ctime
+import os
+import re
+import sys
+import time
 
 # ------------------------------------------------------------------------- #
 #                               GLOBALS                                     #
@@ -274,24 +273,20 @@ class HAProxySocket:
         self._socket = socket(AF_UNIX, SOCK_STREAM)
         self._socket.settimeout(1)
 
-    def __enter__(self):
+    def connect(self):
         # Initialize interactive socket connection
-        self.connect()
+        self._socket.connect(self.path)
         self.send('prompt')
         self.wait()
         self.send('set timeout cli %d' % HAPROXY_CLI_TIMEOUT)
         self.wait()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
-    def connect(self):
-        self._socket.connect(self.path)
 
     def close(self):
         try:
             self.send('quit')
+        except:
+            pass
+        try:
             self._socket.close()
         except:
             pass
@@ -301,24 +296,24 @@ class HAProxySocket:
 
     def wait(self):
         # Wait for the prompt and discard data.
-        chunk = ''
-        while not chunk.endswith(HAPROXY_CLI_PROMPT):
-            chunk = chunk[-(len(HAPROXY_CLI_PROMPT)-1):] + \
+        rbuf = ''
+        while not rbuf.endswith(HAPROXY_CLI_PROMPT):
+            rbuf = rbuf[-(len(HAPROXY_CLI_PROMPT)-1):] + \
                     self._socket.recv(HAPROXY_CLI_BUFSIZE)
 
     def recv(self):
         # Receive lines until HAPROXY_CLI_MAXLINES or the prompt is reached.
         # If the prompt was not found, discard data and wait for it.
         linecount = 0
-        chunk = ''
-        while not chunk.endswith(HAPROXY_CLI_PROMPT):
+        rbuf = ''
+        while not rbuf.endswith(HAPROXY_CLI_PROMPT):
             if linecount == HAPROXY_CLI_MAXLINES:
-                chunk = chunk[-(len(HAPROXY_CLI_PROMPT)-1):] + \
+                rbuf = rbuf[-(len(HAPROXY_CLI_PROMPT)-1):] + \
                         self._socket.recv(HAPROXY_CLI_BUFSIZE)
                 continue
-            chunk += self._socket.recv(HAPROXY_CLI_BUFSIZE)
-            while linecount < HAPROXY_CLI_MAXLINES and '\n' in chunk:
-                line, chunk = chunk.split('\n', 1)
+            rbuf += self._socket.recv(HAPROXY_CLI_BUFSIZE)
+            while linecount < HAPROXY_CLI_MAXLINES and '\n' in rbuf:
+                line, rbuf = rbuf.split('\n', 1)
                 linecount += 1
                 yield line
 
@@ -352,7 +347,6 @@ class HAProxyData:
 class Screen:
 
     def __init__(self):
-        self.screen = None
         self.xmin = 0
         self.xmax = SCREEN_XMIN
         self.ymin = 0
@@ -361,10 +355,10 @@ class Screen:
         self.cmin = 0
         self.cpos = 0
         self.hpos = SCREEN_HPOS
-        self.init()
-
-    def init(self):
         self.screen = curses_init()
+        curses.def_prog_mode()
+
+    def setup(self):
         self.screen.keypad(1)
         self.screen.nodelay(1)
         self.screen.idlok(1)
@@ -372,6 +366,9 @@ class Screen:
 
     def reset(self):
         curses_reset(self.screen)
+
+    def recover(self):
+        curses.reset_prog_mode()
 
     def refresh(self):
         self.screen.noutrefresh()
@@ -411,7 +408,7 @@ class Screen:
         updated = False
         ymax, xmax = self.screen.getmaxyx()
         if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
-            raise RuntimeError('Screen too small, need at least %dx%d' % (
+            raise RuntimeError('screen too small, need at least %dx%d' % (
                     SCREEN_XMIN, SCREEN_YMIN))
         if xmax != self.xmax:
             self.xmax = min(xmax, SCREEN_XMAX)
@@ -469,15 +466,15 @@ class ScreenColumn:
         self.filters = {'always': [], 'ondemand': []}
         self.filters.update(filters)
 
-    @property
-    def width(self):
+    def get_width(self):
         return self._width
 
-    @width.setter
-    def width(self, n):
+    def set_width(self, n):
         if self.maxwidth:
             self._width = min(self.maxwidth, n)
         self._width = max(self.minwidth, n)
+
+    width = property(get_width, set_width)
 
 
 class ScreenLine:
@@ -875,7 +872,6 @@ def curses_init():
         curses.use_default_colors()
     except:
         pass
-    curses.def_prog_mode() # save state for recovery
     return screen
 
 def curses_reset(screen):
@@ -893,7 +889,7 @@ def draw_head(screen):
     draw_line(screen, screen.ymin, screen.xmin)
     attr = curses.A_REVERSE | curses.A_BOLD
     screen.addstr(screen.ymin, screen.xmin,
-            ctime().rjust(screen.xmax - 1), attr)
+            time.ctime().rjust(screen.xmax - 1), attr)
     screen.addstr(screen.ymin, screen.xmin + 1,
             'hatop version ' + __version__, attr)
 
@@ -1109,7 +1105,7 @@ def mainloop(screen, socket, interval, mode):
             update = False
             continue
 
-        sleep(scan)
+        time.sleep(scan)
         i -= 1
 
 
@@ -1151,44 +1147,43 @@ if __name__ == '__main__':
 
     READ_ONLY = opts.ro
 
-    try:
-        screen = Screen()
-    except Exception as e:
-        log('error while initializing screen: %s' % e)
-        sys.exit(1)
-
     import signal
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
 
     from socket import error as SocketError
     from _curses import error as CursesError
 
+    socket = HAProxySocket(opts.socket)
+    screen = Screen()
+
     try:
-        with HAProxySocket(opts.socket) as socket:
+        socket.connect()
+        screen.setup()
 
-            while True:
-                try:
-                    curses.reset_prog_mode()
-                    mainloop(screen, socket, opts.interval, opts.mode)
-                except StopIteration:
-                    break
-                except KeyboardInterrupt:
-                    break
-                except CursesError as e:
-                    screen.reset()
-                    log('curses error: %s, restarting...' % e)
-                    sleep(1)
+        while True:
+            try:
+                mainloop(screen, socket, opts.interval, opts.mode)
+            except StopIteration:
+                break
+            except KeyboardInterrupt:
+                break
+            except CursesError, e:
+                screen.reset()
+                log('curses error: %s, restarting...' % e)
+                time.sleep(1)
+                screen.recover()
 
-    except RuntimeError as e:
+    except RuntimeError, e:
         screen.reset()
         log('runtime error: %s' % e)
         sys.exit(1)
-    except SocketError as e:
+    except SocketError, e:
         screen.reset()
         log('socket error: %s' % e)
         sys.exit(2)
     finally:
         screen.reset()
+        socket.close()
 
     sys.exit(0)
 
