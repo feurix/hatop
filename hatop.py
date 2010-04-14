@@ -18,9 +18,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-'''
-HATop is an interactive ncurses client for the HAProxy stats socket
-===================================================================
+'''\
+HATop is an interactive ncurses client for the HAProxy unix socket
+==================================================================
 
 HATop's appearance is similar to top(1). It supports various modes
 for detailed statistics of all configured proxies and services in near
@@ -155,7 +155,6 @@ SCREEN_XMAX = 200
 SCREEN_YMAX = 200
 SCREEN_HPOS = 11
 
-
 HAPROXY_INFO_RE = {
 'software_name':    re.compile('^Name:\s*(?P<value>\S+)'),
 'software_version': re.compile('^Version:\s*(?P<value>\S+)'),
@@ -267,7 +266,7 @@ SPACE = ' '
 #                           CLASS DEFINITIONS                               #
 # ------------------------------------------------------------------------- #
 
-class HAProxySocket:
+class Socket:
 
     def __init__(self, path, readonly=False):
         self.path = path
@@ -322,7 +321,7 @@ class HAProxySocket:
                 yield line
 
 
-class HAProxySocketData:
+class SocketData:
 
     def __init__(self, socket):
         self.socket = socket
@@ -1225,8 +1224,8 @@ if __name__ == '__main__':
         log('insufficient permissions for socket path %s' % opts.socket)
         sys.exit(2)
 
-    socket = HAProxySocket(opts.socket, opts.ro)
-    data = HAProxySocketData(socket)
+    socket = Socket(opts.socket, opts.ro)
+    data = SocketData(socket)
     screen = Screen(data, opts.mode)
 
     if opts.filter:
