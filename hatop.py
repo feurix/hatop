@@ -173,9 +173,13 @@ HAPROXY_INFO_RE = {
 'description':      re.compile('^description:\s*(?P<value>\S+)'),
 }
 
+HAPROXY_STAT_MAX_SERVICES = 100
+HAPROXY_STAT_LIMIT_WARNING = '''\
+Warning: You have reached the stat parser limit! (%d)
+Use --filter to parse specific service stats only.
+''' % HAPROXY_STAT_MAX_SERVICES
 HAPROXY_STAT_FILTER_RE = re.compile(
         '^(?P<iid>-?\d+)\s+(?P<type>-?\d+)\s+(?P<sid>-?\d+)$')
-HAPROXY_STAT_MAX_SERVICES = 100
 HAPROXY_STAT_COMMENT = '#'
 HAPROXY_STAT_SEP = ','
 HAPROXY_STAT_CSV = [
@@ -497,13 +501,10 @@ class Screen:
     def update_lines(self):
         if 0 < self.mid < 5:
             self.lines = get_screenlines(self.data.stat)
-        if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
-            self.lines.append(ScreenLine(attr=curses.A_BOLD,
-                text='Warning: You have reached the stat parser limit! (%d)'
-                            % HAPROXY_STAT_MAX_SERVICES))
-            self.lines.append(ScreenLine(
-                text='Use --filter to parse specific service stats only.'))
-            self.lines.append(ScreenLine())
+            if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
+                for line in HAPROXY_STAT_LIMIT_WARNING.splitlines():
+                    self.lines.append(ScreenLine(text=line))
+                self.lines.append(ScreenLine())
 
     def draw_line(self, ypos, xpos=0, text=None,
             attr=curses.A_REVERSE):
@@ -920,10 +921,10 @@ def parse_stat(iterable):
 
             try:
                 if field_type is int:
-                    if not len(value):
-                        value = 0
-                    else:
+                    if len(value):
                         value = int(value, 10)
+                    else:
+                        value = 0
                 elif field_type is not type(value):
                         value = field_type(value)
             except ValueError:
@@ -1075,6 +1076,8 @@ def curses_init():
     return screen
 
 def curses_reset(screen):
+    if not screen:
+        return
     screen.keypad(0)
     curses.echo()
     curses.nocbreak()
@@ -1084,7 +1087,7 @@ def curses_reset(screen):
 #                               MAIN LOOP                                   #
 # ------------------------------------------------------------------------- #
 
-def mainloop(socket, interval, screen):
+def mainloop(screen, interval):
     # Sleep time of each iteration in seconds
     scan = 1.0 / 100.0
     # Query socket and redraw the screen in the given interval
@@ -1245,13 +1248,13 @@ if __name__ == '__main__':
     from _curses import error as CursesError
 
     try:
-        socket.connect()
-        screen.setup()
-
         try:
+            screen.setup()
+            socket.connect()
+
             while True:
                 try:
-                    mainloop(socket, opts.interval, screen)
+                    mainloop(screen, opts.interval)
                 except StopIteration:
                     break
                 except KeyboardInterrupt:
