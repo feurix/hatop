@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.0'
+__version__   = '0.4.1'
 
 import curses
 import os
@@ -331,7 +331,6 @@ class HAProxySocketData:
         self.info = {}
         self.stat = {}
         self._filters = set()
-        self._filterstr = str()
 
     def add_filters(self, filterstrings):
         for filter in filterstrings:
@@ -343,11 +342,10 @@ class HAProxySocketData:
                     int(match.group('type'), 10),
                     int(match.group('sid'), 10),
             ))
-        # Assemble a new filter query string for fast retrival later on:
-        # "show stat <iid> <type> <sid>;show stat <iid> <type> <sid>;..."
-        self._filterstr = HAPROXY_CLI_CMD_SEP.join((
-            'show stat %s' % SPACE.join(str(i) for i in filter)
-            for filter in self._filters))
+
+    def del_filters(self, filters):
+        for filter in filters:
+            self._filters.remove(filter)
 
     def update_info(self):
         self.socket.send('show info')
@@ -355,9 +353,20 @@ class HAProxySocketData:
         self.info = parse_info(iterable)
 
     def update_stat(self):
-        self.socket.send(self._filterstr or 'show stat')
-        iterable = self.socket.recv()
-        self.stat, self.pxcount, self.svcount = parse_stat(iterable)
+        if self._filters:
+            self.pxcount = 0
+            self.svcount = 0
+            self.stat = {}
+            for filter in self._filters:
+                self.socket.send('show stat %d %d %d' % filter)
+                stat, pxcount, svcount = parse_stat(self.socket.recv())
+                self.pxcount += pxcount
+                self.svcount += svcount
+                self.stat.update(stat)
+        else:
+            self.socket.send('show stat')
+            self.stat, self.pxcount, self.svcount = \
+                    parse_stat(self.socket.recv())
 
 
 class Screen:
