@@ -389,7 +389,7 @@ class Screen:
         self.screen.idlok(1)
         self.screen.move(0, 0)
         curses.def_prog_mode()
-        self.help.init()
+        self.help.setup()
 
     def reset(self):
         curses_reset(self.screen)
@@ -415,6 +415,8 @@ class Screen:
         return self._mode
 
     def switch_mode(self, mid):
+        if mid == 5 and self.data.socket.ro:
+            return
         mode = self.modes[mid]
         mode.sync_size(self)
         self._mid, self._mode = mid, mode
@@ -547,17 +549,17 @@ class Screen:
         attr_active = curses.A_BOLD
         attr_inactive = curses.A_BOLD | curses.A_REVERSE
 
-        for m, mode in enumerate(self.modes):
-            if m == 0:
+        for mid, mode in enumerate(self.modes):
+            if mid == 0:
                 continue
-            if m == 5 and self.data.socket.ro:
+            if mid == 5 and self.data.socket.ro:
                 continue
-            if m == self.mid:
+            if mid == self.mid:
                 attr = attr_active
             else:
                 attr = attr_inactive
 
-            s = ' %d-%s ' % (m, mode.name)
+            s = ' %d-%s ' % (mid, mode.name)
             self.addstr(ypos, xpos, s, attr)
             xpos += len(s)
 
@@ -590,6 +592,7 @@ class Screen:
         else:
             self.draw_stat()
 
+
 class ScreenPad:
 
     def __init__(self, screen, xmin, xmax, ymin, ymax):
@@ -601,7 +604,7 @@ class ScreenPad:
         self.xpos = 0
         self.ypos = 0
 
-    def init(self):
+    def setup(self):
         self.pad = curses.newpad(self.ymax + 1, self.xmax + 1)
 
     def addstr(self, *args, **kwargs):
@@ -616,6 +619,7 @@ class ScreenPad:
 
     def draw_text(self, text):
         self.addstr(0, 0, text)
+
 
 class ScreenMode:
 
@@ -862,9 +866,6 @@ SCREEN_MODES[5].columns = [
                                          SCREEN_XMIN,      0,    'L'),
 ]
 
-#SCREEN_MODES = [(mid, mode) for mid, mode in enumerate(SCREEN_MODES)]
-
-
 # ------------------------------------------------------------------------- #
 #                                HELPERS                                    #
 # ------------------------------------------------------------------------- #
@@ -1043,6 +1044,9 @@ def get_screenline(mode, stat):
 
     return SPACE.join(cells)
 
+def run_cli(screen):
+    pass # TODO
+
 # ------------------------------------------------------------------------- #
 #                            CURSES HELPERS                                 #
 # ------------------------------------------------------------------------- #
@@ -1111,10 +1115,8 @@ def mainloop(socket, interval, screen):
             if c != str(screen.mid) or (c in 'Hh?' and screen.mid != 0):
                 if c in 'Hh?':
                     screen.switch_mode(0)
-                elif c in '1234':
+                elif c in '12345':
                     screen.switch_mode(int(c))
-                elif c in '5' and not socket.ro:
-                    screen.switch_mode(5)
 
                 # Force screen update with existing data
                 if c in 'Hh?12345':
