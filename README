@@ -15,7 +15,7 @@ Note: It is important to understand that when multiple haproxy processes
 
 Requirements:
 
-    - Python 2.5 or later
+    - Python 2.4 or later
     - HAProxy 1.4 or later
 
 Key Mode    Description
