@@ -454,6 +454,10 @@ class Screen:
         return min(self.span, len(self.lines)) - 1
 
     @property
+    def cstat(self):
+        return self.lines[self.vpos].stat
+
+    @property
     def vpos(self):
         return self.vmin + self.cpos
 
@@ -571,10 +575,9 @@ class Screen:
             self.addstr(ypos, xpos, s, attr)
             xpos += len(s)
 
-        cline = self.lines[self.vpos]
-        if 0 < self.mid < 5 and cline.stat:
+        if 0 < self.mid < 5 and self.cstat:
             s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (
-                    cline.stat['iid'], cline.stat['sid'])
+                    self.cstat['iid'], self.cstat['sid'])
         else:
             s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
         self.addstr(ypos, self.xmax - len(s) - 1, s, attr_inactive)
