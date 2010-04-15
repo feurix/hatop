@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.1'
+__version__   = '0.4.2'
 
 import curses
 import os
@@ -180,6 +180,8 @@ Use --filter to parse specific service stats only.
 ''' % HAPROXY_STAT_MAX_SERVICES
 HAPROXY_STAT_FILTER_RE = re.compile(
         '^(?P<iid>-?\d+)\s+(?P<type>-?\d+)\s+(?P<sid>-?\d+)$')
+HAPROXY_STAT_PROXY_FILTER_RE = re.compile(
+        '^(?P<pxname>[a-zA-Z0-9_:\.\-]+)$')
 HAPROXY_STAT_COMMENT = '#'
 HAPROXY_STAT_SEP = ','
 HAPROXY_STAT_CSV = [
@@ -335,16 +337,27 @@ class SocketData:
         self.stat = {}
         self._filters = set()
 
-    def add_filters(self, filterstrings):
-        for filter in filterstrings:
+    def add_filters(self, stat_filter=[], proxy_filter=[]):
+        for filter in stat_filter:
             match = HAPROXY_STAT_FILTER_RE.match(filter)
             if not match:
-                raise ValueError('invalid filter: %s' % filter)
+                raise ValueError('invalid stat filter: %s' % filter)
             self._filters.add((
                     int(match.group('iid'), 10),
                     int(match.group('type'), 10),
                     int(match.group('sid'), 10),
             ))
+        if proxy_filter:
+            # Convert proxy filters into more efficient stat filters
+            for filter in proxy_filter:
+                if not HAPROXY_STAT_PROXY_FILTER_RE.match(filter):
+                    raise ValueError('invalid proxy filter: %s' % filter)
+            filter = {get_idx('pxname'): proxy_filter}
+            self.socket.send('show stat')
+            stat, pxcount, svcount = \
+                    parse_stat(self.socket.recv(), filter=filter)
+            for iid in stat.iterkeys():
+                self._filters.add((iid, -1, -1))
 
     def del_filters(self, filters):
         for filter in filters:
@@ -885,7 +898,7 @@ SCREEN_MODES[5].columns = [
 def log(msg):
     sys.stderr.write('%s\n' % msg)
 
-def parse_stat(iterable):
+def parse_stat(iterable, filter={}):
     pxcount = svcount = 0
     pxstat = {} # {iid: {sid: svstat, ...}, ...}
 
@@ -902,7 +915,15 @@ def parse_stat(iterable):
 
         csv = line.split(HAPROXY_STAT_SEP)
 
-        # Skip parsing but keep counting...
+        # Apply filter
+        try:
+            for idx, valid_values in filter.iteritems():
+                if csv[idx] not in valid_values:
+                    raise StopIteration()
+        except StopIteration:
+            continue
+
+        # Skip further parsing?
         if svcount > HAPROXY_STAT_MAX_SERVICES:
             iid = int(csv[idx_iid], 10)
             sid = int(csv[idx_sid], 10)
@@ -913,6 +934,7 @@ def parse_stat(iterable):
                 svcount += 1
             continue
 
+        # Parse stat...
         svstat = {} # {field: value, ...}
 
         for idx, field in HAPROXY_STAT_CSV:
@@ -939,6 +961,7 @@ def parse_stat(iterable):
 
             svstat[field_name] = value
 
+        # Record result...
         iid = svstat['iid']
         stype = svstat['type']
 
@@ -1201,15 +1224,22 @@ if __name__ == '__main__':
     parser.add_option_group(opts)
 
     opts = OptionGroup(parser, 'Optional')
-    opts.add_option('-f', '--filter', action='append', dest='filter',
-            help='stat filter in format "<iid> <type> <sid>"       '
-            '     (may be given multiple times)')
     opts.add_option('-i', '--update-interval', type='int', dest='interval',
             help='update interval in seconds (1-30, default: 1)', default=1)
     opts.add_option('-m', '--mode', type='int', dest='mode',
             help='start in specific mode (1-5, default: 1)', default=1)
     opts.add_option('-n', '--read-only', action='store_true', dest='ro',
             help='disable the cli and query for stats only')
+    parser.add_option_group(opts)
+
+    opts = OptionGroup(parser, 'Filters',
+            'Note: All filter options may be given multiple times.')
+    opts.add_option('-f', '--filter', action='append', dest='stat_filter',
+            default=[], metavar='FILTER',
+            help='stat filter in format "<iid> <type> <sid>"')
+    opts.add_option('-p', '--proxy', action='append', dest='proxy_filter',
+            default=[], metavar='PROXY',
+            help='proxy filter in format "<pxname>"')
     parser.add_option_group(opts)
 
     opts, args = parser.parse_args()
@@ -1234,13 +1264,6 @@ if __name__ == '__main__':
     data = SocketData(socket)
     screen = Screen(data, opts.mode)
 
-    if opts.filter:
-        try:
-            data.add_filters(opts.filter)
-        except ValueError, e:
-            log(e)
-            sys.exit(1)
-
     import signal
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
 
@@ -1251,6 +1274,12 @@ if __name__ == '__main__':
         try:
             screen.setup()
             socket.connect()
+
+            try:
+                data.add_filters(stat_filter=opts.stat_filter,
+                    proxy_filter=opts.proxy_filter)
+            except ValueError, e:
+                raise RuntimeError(e)
 
             while True:
                 try:
