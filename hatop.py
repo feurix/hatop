@@ -1249,10 +1249,10 @@ if __name__ == '__main__':
 
     opts, args = parser.parse_args()
 
-    if not 0 < opts.interval < 31:
+    if not 1 <= opts.interval <= 30:
         log('invalid update interval: %d' % opts.interval)
         sys.exit(1)
-    if not 0 < opts.mode < 6:
+    if not 1 <= opts.mode <= 5:
         log('invalid mode: %d' % opts.mode)
         sys.exit(1)
     if opts.ro and opts.mode == 5:
