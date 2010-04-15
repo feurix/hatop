@@ -41,12 +41,12 @@ while 1:
         data = conn.recv(1024)
         print('--- %s' % time.ctime())
         print('recv: %s' % data.strip())
-        if not data or data == 'quit\n':
+        if not data or data.startswith('quit'):
             break
-        elif data == 'show info\n':
+        elif data.startswith('show info'):
             print('send: info...')
             conn.sendall(data_info)
-        elif data == 'show stat\n':
+        elif data.startswith('show stat'):
             print('send: stat...')
             conn.sendall(data_stat)
         print('send: empty line (end of response)')
