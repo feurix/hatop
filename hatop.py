@@ -1230,7 +1230,7 @@ if __name__ == '__main__':
 
     opts = OptionGroup(parser, 'Optional')
     opts.add_option('-i', '--update-interval', type='int', dest='interval',
-            help='update interval in seconds (1-30, default: 1)', default=1)
+            help='update interval in seconds (1-30, default: 5)', default=5)
     opts.add_option('-m', '--mode', type='int', dest='mode',
             help='start in specific mode (1-5, default: 1)', default=1)
     opts.add_option('-n', '--read-only', action='store_true', dest='ro',
