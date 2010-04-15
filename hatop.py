@@ -128,7 +128,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.2'
+__version__   = '0.4.3'
 
 import curses
 import os
@@ -1116,13 +1116,18 @@ def mainloop(screen, interval):
     # Query socket and redraw the screen in the given interval
     iterations = interval / scan
 
+    i = 0
     update = True
-    i = iterations
+    refresh = True
 
     while True:
         screen.sync_size()
 
         if i == iterations:
+            i = 0
+            refresh = True
+
+        if refresh:
             if update:
                 screen.update_data()
                 screen.update_bars()
@@ -1139,7 +1144,7 @@ def mainloop(screen, interval):
             screen.draw_foot()
             screen.refresh()
 
-            i = 0
+            refresh = False
 
         c = screen.getch()
 
@@ -1157,7 +1162,7 @@ def mainloop(screen, interval):
 
                 # Force screen update with existing data
                 if c in 'Hh?12345':
-                    i = iterations
+                    refresh = True
                     update = False
                     continue
 
@@ -1201,7 +1206,7 @@ def mainloop(screen, interval):
                             screen.help.ypos + 10)
 
             # Force screen update with existing data
-            i = iterations
+            refresh = True
             update = False
             continue
 
