@@ -405,7 +405,7 @@ class Screen:
         self.cmin = 0
         self.cpos = 0
         self.hpos = SCREEN_HPOS
-        self.help = ScreenPad(self, 0, self.xmax - 2, 0, __doc__.count('\n'))
+        self.help = HelpScreen(self)
 
         self._mid = mid
         self._mode = self.modes[mid]
@@ -621,14 +621,14 @@ class Screen:
             self.draw_stat()
 
 
-class ScreenPad:
+class HelpScreen:
 
-    def __init__(self, screen, xmin, xmax, ymin, ymax):
+    def __init__(self, screen):
         self.screen = screen
-        self.xmin = xmin
-        self.xmax = xmax
-        self.ymin = ymin
-        self.ymax = ymax
+        self.xmin = screen.xmin + 1
+        self.xmax = screen.xmax
+        self.ymin = 0
+        self.ymax = __doc__.count('\n')
         self.xpos = 0
         self.ypos = 0
 
@@ -639,11 +639,10 @@ class ScreenPad:
         return self.pad.addstr(*args, **kwargs)
 
     def refresh(self):
-        self.pad.noutrefresh(self.ypos, self.xpos,
-                self.screen.smin,
-                self.screen.xmin + 1,
-                self.screen.smax - 1,
-                self.screen.xmax - 1)
+        self.pad.noutrefresh(
+                self.ypos, self.xpos,
+                self.screen.smin, self.xmin,
+                self.screen.smax, self.xmax - 2)
 
     def draw_text(self, text):
         self.addstr(0, 0, text)
