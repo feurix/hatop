@@ -2,7 +2,7 @@
 # HATop hacking...
 
 
-Screen coordinates:
+*** Screen coordinates:
 
           xmin (0)                                        xmax (>=78)
             |                                               |
@@ -35,6 +35,11 @@ Screen coordinates:
             |                                               |     63
    ymax ----+------------------- footer --------------------'    [..]
   (>=20)
+
+
+Smin/max        = Screen position
+Cmin/max/pos    = Curser position
+Vmin/max/pos    = Virtual position
 
 
 Dynamic positions:
