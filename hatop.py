@@ -399,7 +399,7 @@ class SocketData:
                     parse_stat(self.socket.recv())
 
 
-class CommandLineInterface:
+class ScreenCLI:
 
     def __init__(self, screen):
         self.screen = screen
@@ -651,8 +651,8 @@ class Screen:
         self.cmin = 0
         self.cpos = 0
         self.hpos = SCREEN_HPOS
-        self.help = HelpScreen(self)
-        self.cli = CommandLineInterface(self)
+        self.help = ScreenHelp(self)
+        self.cli = ScreenCLI(self)
 
         self._mid = mid
         self._mode = self.modes[mid]
@@ -912,7 +912,7 @@ class Screen:
             self.draw_stat()
 
 
-class HelpScreen:
+class ScreenHelp:
 
     def __init__(self, screen):
         self.screen = screen
