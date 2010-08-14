@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.2'
+__version__   = '0.5.3'
 
 import fcntl
 import os
@@ -1514,6 +1514,10 @@ def mainloop(screen, interval):
                     screen.help.ypos < screen.help.ymax - screen.span:
                 screen.help.ypos = min(screen.help.ymax - screen.span,
                         screen.help.ypos + 10)
+            elif c == curses.ascii.SOH or c == curses.KEY_HOME:
+                screen.help.ypos = screen.help.ymin
+            elif c == curses.ascii.ENQ or c == curses.KEY_END:
+                screen.help.ypos = screen.help.ymax - screen.span
 
         # -> STATUS / TRAFFIC / HTTP / ERRORS
         elif 1 <= screen.mid <= 4:
@@ -1539,6 +1543,13 @@ def mainloop(screen, interval):
                     screen.cpos = min(screen.cmax, screen.cpos + 10)
                 if screen.cpos == screen.cmax and screen.vmin < maxvmin:
                     screen.vmin = min(maxvmin, screen.vmin + 10)
+            elif c == curses.ascii.SOH or c == curses.KEY_HOME:
+                screen.cpos = screen.cmin
+                screen.vmin = 0
+            elif c == curses.ascii.ENQ or c == curses.KEY_END:
+                maxvmin = len(screen.lines) - screen.cmax - 2
+                screen.cpos = screen.cmax
+                screen.vmin = maxvmin
 
         # -> CLI
         elif screen.mid == 5:
@@ -1586,6 +1597,9 @@ def mainloop(screen, interval):
             curses.KEY_DOWN,
             curses.KEY_PPAGE,
             curses.KEY_NPAGE,
+        ] or screen.mid != 5 and c in [
+            curses.ascii.SOH, curses.KEY_HOME,
+            curses.ascii.ENQ, curses.KEY_END,
         ]:
             update = False
             refresh = True
