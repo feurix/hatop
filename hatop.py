@@ -128,13 +128,15 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.3'
+__version__   = '0.4.4'
 
-import curses
 import os
 import re
 import sys
 import time
+
+import curses
+import curses.ascii
 
 # ------------------------------------------------------------------------- #
 #                               GLOBALS                                     #
@@ -1089,21 +1091,24 @@ def run_cli(screen):
 def curses_init():
     screen = curses.initscr()
     curses.noecho()
-    curses.cbreak()
+    curses.nonl()
     curses.curs_set(0)
+    curses.raw()
+
     try:
         curses.start_color()
         curses.use_default_colors()
     except:
         pass
+
     return screen
 
 def curses_reset(screen):
     if not screen:
         return
     screen.keypad(0)
+    curses.noraw()
     curses.echo()
-    curses.nocbreak()
     curses.endwin()
 
 # ------------------------------------------------------------------------- #
@@ -1117,23 +1122,26 @@ def mainloop(screen, interval):
     iterations = interval / scan
 
     i = 0
-    update = True
-    refresh = True
+    update = True       # Toggle data update (query socket, parse, ...)
+    refresh = True      # Toggle resize and repaint of the whole screen
+    switch = False      # Toggle mode / viewport switch
 
     while True:
         screen.sync_size()
 
         if i == iterations:
             i = 0
+            update = True
             refresh = True
 
+        # Refresh screen?
         if refresh:
+
             if update:
                 screen.update_data()
                 screen.update_bars()
                 screen.update_lines()
-            else:
-                update = True
+                update = False
 
             # Update screen
             screen.clear()
@@ -1148,12 +1156,34 @@ def mainloop(screen, interval):
 
         c = screen.getch()
 
-        if 0 < c < 256:
+        if c < 0:
+            time.sleep(scan)
+            i += 1
+            continue
 
-            c = chr(c)
-            if c in 'qQ':
+        if c == curses.ascii.ETX:
+            raise KeyboardInterrupt()
+
+        # Mode switch (ALT-n / ESC-n)
+        if c == curses.ascii.ESC:
+            c = screen.getch()
+            if c < 0 or c == curses.ascii.ESC:
                 raise StopIteration()
+            if 0 < c < 256:
+                c = chr(c)
+                if c in 'qQHh?12345':
+                    switch = True
 
+        # Mode switch in non-CLI modes using the number only
+        elif 0 <= screen.mid < 5 and 0 < c < 256:
+            c = chr(c)
+            if c in 'qQHh?12345':
+                switch = True
+
+        if switch:
+            switch = False
+            if c in 'qQ':
+                    raise StopIteration()
             if c != str(screen.mid) or (c in 'Hh?' and screen.mid != 0):
                 if c in 'Hh?':
                     screen.switch_mode(0)
@@ -1161,54 +1191,59 @@ def mainloop(screen, interval):
                     screen.switch_mode(int(c))
 
                 # Force screen update with existing data
-                if c in 'Hh?12345':
-                    refresh = True
-                    update = False
-                    continue
+                update = False
+                refresh = True
+                continue
 
-        elif c in [curses.KEY_UP, curses.KEY_DOWN, curses.KEY_PPAGE,
-                curses.KEY_NPAGE]:
-            if 0 < screen.mid < 5:
-                if c == curses.KEY_UP:
-                    if screen.cpos > screen.cmin:
-                        screen.cpos -= 1
-                    if screen.cpos == screen.cmin and screen.vmin > 0:
-                        screen.vmin -= 1
-                elif c == curses.KEY_DOWN:
-                    maxvmin = len(screen.lines) - screen.cmax - 2
-                    if screen.cpos < screen.cmax:
-                        screen.cpos += 1
-                    if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                        screen.vmin += 1
-                elif c == curses.KEY_PPAGE:
-                    if screen.cpos > screen.cmin:
-                        screen.cpos = max(screen.cmin, screen.cpos - 10)
-                    if screen.cpos == screen.cmin and screen.vmin > 0:
-                        screen.vmin = max(0, screen.vmin - 10)
-                elif c == curses.KEY_NPAGE:
-                    maxvmin = len(screen.lines) - screen.cmax - 2
-                    if screen.cpos < screen.cmax:
-                        screen.cpos = min(screen.cmax, screen.cpos + 10)
-                    if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                        screen.vmin = min(maxvmin, screen.vmin + 10)
-            elif screen.mid == 0:
-                if c == curses.KEY_UP and screen.help.ypos > 0:
-                    screen.help.ypos -= 1
-                elif c == curses.KEY_DOWN and \
-                        screen.help.ypos < screen.help.ymax - screen.span:
-                    screen.help.ypos += 1
-                elif c == curses.KEY_PPAGE and screen.help.ypos > 0:
-                    screen.help.ypos = max(screen.help.ymin,
-                            screen.help.ypos - 10)
-                elif c == curses.KEY_NPAGE and \
-                        screen.help.ypos < screen.help.ymax - screen.span:
-                    screen.help.ypos = min(screen.help.ymax - screen.span,
-                            screen.help.ypos + 10)
+        # -> HELP
+        if screen.mid == 0:
+            if c == curses.KEY_UP and screen.help.ypos > 0:
+                screen.help.ypos -= 1
+            elif c == curses.KEY_DOWN and \
+                    screen.help.ypos < screen.help.ymax - screen.span:
+                screen.help.ypos += 1
+            elif c == curses.KEY_PPAGE and screen.help.ypos > 0:
+                screen.help.ypos = max(screen.help.ymin,
+                        screen.help.ypos - 10)
+            elif c == curses.KEY_NPAGE and \
+                    screen.help.ypos < screen.help.ymax - screen.span:
+                screen.help.ypos = min(screen.help.ymax - screen.span,
+                        screen.help.ypos + 10)
 
-            # Force screen update with existing data
-            refresh = True
+        # -> STATUS / TRAFFIC / HTTP / ERRORS
+        elif 1 <= screen.mid <= 4:
+            if c == curses.KEY_UP:
+                if screen.cpos > screen.cmin:
+                    screen.cpos -= 1
+                if screen.cpos == screen.cmin and screen.vmin > 0:
+                    screen.vmin -= 1
+            elif c == curses.KEY_DOWN:
+                maxvmin = len(screen.lines) - screen.cmax - 2
+                if screen.cpos < screen.cmax:
+                    screen.cpos += 1
+                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
+                    screen.vmin += 1
+            elif c == curses.KEY_PPAGE:
+                if screen.cpos > screen.cmin:
+                    screen.cpos = max(screen.cmin, screen.cpos - 10)
+                if screen.cpos == screen.cmin and screen.vmin > 0:
+                    screen.vmin = max(0, screen.vmin - 10)
+            elif c == curses.KEY_NPAGE:
+                maxvmin = len(screen.lines) - screen.cmax - 2
+                if screen.cpos < screen.cmax:
+                    screen.cpos = min(screen.cmax, screen.cpos + 10)
+                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
+                    screen.vmin = min(maxvmin, screen.vmin + 10)
+
+        # Force screen update with existing data if key was a movement key
+        if c in [
+            curses.KEY_UP,
+            curses.KEY_DOWN,
+            curses.KEY_PPAGE,
+            curses.KEY_NPAGE,
+        ]:
             update = False
-            continue
+            refresh = True
 
         time.sleep(scan)
         i += 1
