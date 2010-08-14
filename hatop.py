@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.0'
+__version__   = '0.5.2'
 
 import fcntl
 import os
@@ -657,12 +657,23 @@ class Screen:
         self._mid = mid
         self._mode = self.modes[mid]
 
+        # Assume a dumb TTY, setup() will detect smart features.
+        self.dumbtty = True
+
         # Toggled by the SIGWINCH handler...
         # Note: Defaults to true to force the initial size sync.
-        self.resized = True
+        self.resize_toggle = True
 
     def _sigwinchhandler(self, signum, frame):
-        self.resized = True
+        self.resize_toggle = True
+
+    @property
+    def resized(self):
+        if self.dumbtty:
+            ymax, xmax = self.screen.getmaxyx()
+            return ymax != self.ymax or xmax != self.xmax
+        else:
+            return self.resize_toggle
 
     @property
     def mid(self):
@@ -728,23 +739,25 @@ class Screen:
 
         # Register some terminal resizing magic if supported...
         if hasattr(curses, 'resize_term') and hasattr(signal, 'SIGWINCH'):
+            self.dumbtty = False
             signal.signal(signal.SIGWINCH, self._sigwinchhandler)
 
     def resize(self):
-        self.clear()
-        size = fcntl.ioctl(0, tty.TIOCGWINSZ, '12345678')
-        size = struct.unpack('4H', size)
-        curses.resize_term(size[0], size[1])
+        if not self.dumbtty:
+            self.clear()
+            size = fcntl.ioctl(0, tty.TIOCGWINSZ, '12345678')
+            size = struct.unpack('4H', size)
+            curses.resize_term(size[0], size[1])
 
         ymax, xmax = self.screen.getmaxyx()
 
-        if ymax == self.ymax and xmax == self.xmax:
-            self.resized = False
-            return
         if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
             raise RuntimeError(
                     'screen too small, need at least %dx%d'
                     % (SCREEN_XMIN, SCREEN_YMIN))
+        if ymax == self.ymax and xmax == self.xmax:
+            self.resize_toggle = False
+            return
         if xmax != self.xmax:
             self.xmax = min(xmax, SCREEN_XMAX)
         if ymax != self.ymax:
@@ -757,7 +770,7 @@ class Screen:
             self.cli.update_screenlines()
             self.cli.draw_output()
 
-        self.resized = False
+        self.resize_toggle = False
 
     def reset(self):
         curses_reset(self.screen)
