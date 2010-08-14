@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.3'
+__version__   = '0.5.4'
 
 import fcntl
 import os
@@ -163,6 +163,29 @@ CLI_MAXLINES = 1000
 CLI_MAXHIST = 100
 CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-; ]')
 CLI_INPUT_DENY_CMD = ['quit']
+
+CLI_HELP_TEXT = '''\
+                            Keybind Reference
+
+ .--------------------------------------------------------------------------.
+ | Key                 Action                                               |
+ |--------------------------------------------------------------------------|
+ | ALT-n / ESC-n       escape the shell and display given viewport          |
+ |--------------------------------------------------------------------------|
+ | ENTER               execute cmdline or display marker if input empty     |
+ |--------------------------------------------------------------------------|
+ | LEFT / RIGHT        move input cursor one character to the left or right |
+ | HOME / END          move input cursor to the beginning or end of line    |
+ | BACKSPACE / DEL     delete one character backwards or forwards           |
+ |--------------------------------------------------------------------------|
+ | PGUP / PGDOWN       scroll output history up or down (big steps)         |
+ | SHIFT-UP/DOWN       scroll output history up or down                     |
+ `--------------------------------------------------------------------------'
+
+               Welcome on the embedded interactive HAProxy shell!
+                    Type `help' to get a command reference
+               [Hint: Use PGUP/PGDOWN or SHIFT-UP/DOWN to scroll]
+'''
 
 # Screen setup
 SCREEN_XMIN = 78
@@ -455,6 +478,10 @@ class ScreenCLI:
     def setup(self):
         self.ipad = curses.newpad(1, SCREEN_XMAX)               # input
         self.opad = curses.newpad(SCREEN_YMAX, SCREEN_XMAX)     # output
+
+        # Display initial help text...
+        self.obuf.extend(CLI_HELP_TEXT.split('\n'))
+        self.update_screenlines()
 
     def start(self):
         curses.curs_set(1)
