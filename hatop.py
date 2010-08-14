@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.4'
+__version__   = '0.5.5'
 
 import fcntl
 import os
@@ -164,8 +164,9 @@ CLI_MAXHIST = 100
 CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-; ]')
 CLI_INPUT_DENY_CMD = ['quit']
 
+# Note: Only the last 3 lines are visible instantly on 80x25
 CLI_HELP_TEXT = '''\
-                            Keybind Reference
+                             Keybind Reference
 
  .--------------------------------------------------------------------------.
  | Key                 Action                                               |
@@ -178,13 +179,12 @@ CLI_HELP_TEXT = '''\
  | HOME / END          move input cursor to the beginning or end of line    |
  | BACKSPACE / DEL     delete one character backwards or forwards           |
  |--------------------------------------------------------------------------|
- | PGUP / PGDOWN       scroll output history up or down (big steps)         |
- | SHIFT-UP/DOWN       scroll output history up or down                     |
+ | PGUP / PGDOWN       scroll output history up or down                     |
  `--------------------------------------------------------------------------'
 
-               Welcome on the embedded interactive HAProxy shell!
-                    Type `help' to get a command reference
-               [Hint: Use PGUP/PGDOWN or SHIFT-UP/DOWN to scroll]
+             Welcome on the embedded interactive HAProxy shell!
+                  Type `help' to get a command reference
+                        Use PGUP/PGDOWN to scroll
 '''
 
 # Screen setup
@@ -1610,14 +1610,10 @@ def mainloop(screen, interval):
                 pass # TODO
 
             # output history
-            elif c == curses.KEY_SR:
-                screen.cli.mvo(-1)
-            elif c == curses.KEY_SF:
-                screen.cli.mvo(1)
             elif c == curses.KEY_PPAGE:
-                screen.cli.mvo(-10)
+                screen.cli.mvo(-1)
             elif c == curses.KEY_NPAGE:
-                screen.cli.mvo(10)
+                screen.cli.mvo(1)
 
             elif 0 < c < 256:
                 screen.cli.putc(chr(c))
@@ -1626,8 +1622,6 @@ def mainloop(screen, interval):
         if c in [
             curses.KEY_UP,
             curses.KEY_DOWN,
-            curses.KEY_SR,
-            curses.KEY_SF,
             curses.KEY_PPAGE,
             curses.KEY_NPAGE,
         ] or screen.mid != 5 and c in [
