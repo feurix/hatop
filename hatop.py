@@ -708,17 +708,6 @@ class StatusBar:
         self.usedchar = '|'
         self.freechar = ' '
 
-    def update_cur(self, value):
-        value = min(self.maxval, value)
-        value = max(self.minval, value)
-        self.curval = value
-
-    def update_max(self, value):
-        if value >= self.minval:
-            self.maxval = value
-        else:
-            self.maxval = self.minval
-
     def __str__(self):
         if self.status:
             status = '%d/%d' % (self.curval, self.maxval)
@@ -742,6 +731,17 @@ class StatusBar:
         bar += self.append
 
         return bar
+
+    def update_cur(self, value):
+        value = min(self.maxval, value)
+        value = max(self.minval, value)
+        self.curval = value
+
+    def update_max(self, value):
+        if value >= self.minval:
+            self.maxval = value
+        else:
+            self.maxval = self.minval
 
 # ------------------------------------------------------------------------- #
 #                             DISPLAY FILTERS                               #
