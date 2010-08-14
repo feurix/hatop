@@ -54,3 +54,31 @@ Dynamic positions:
 - stat lines represent the whole set of parsed service stats
 - screen lines represent a subset of stat lines which are on screen
 
+
+
+
+*** ScreenCLI INPUT coordinates:
+
+       screen.xmin                                      screen.xmax
+            .                                               .
+            .                                               .
+            |                                               |
+            |                                               |
+            | |<---------------- ispan ------------------>| |
+            | |                                           | |
+            |imin             ipos                      imax|
+            | |                 |                         | |
+            | [*****************|*************************]-----> input line
+            | |                 |                         | | (at screen.smax)
+            +-|-----------------|-------------------------|-+
+              |                 |                         |
+  [..., ..., .|., ..., ..., ...,|..., ..., ..., ..., ..., |.., ..., ...] ibuf
+  |           |                 |                         |            |
+  |         ibmin             ibpos                     ibmax          |
+  |                                                                    |
+  |<--------------------------- iblen -------------------------------->|
+
+
+Imin/max/pos   = Input position (*on screen*)
+IBmin/pos/max  = Input buffer position
+

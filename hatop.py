@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.6'
+__version__   = '0.5.0'
 
 import fcntl
 import os
@@ -143,6 +143,9 @@ import tty
 import curses
 import curses.ascii
 
+from collections import deque
+from textwrap import TextWrapper
+
 # ------------------------------------------------------------------------- #
 #                               GLOBALS                                     #
 # ------------------------------------------------------------------------- #
@@ -154,6 +157,12 @@ HAPROXY_CLI_PROMPT = '> '
 HAPROXY_CLI_CMD_SEP = ';'
 HAPROXY_CLI_CMD_TIMEOUT = 1
 HAPROXY_CLI_MAXLINES = 1000
+
+# Settings of the embedded CLI
+CLI_MAXLINES = 1000
+CLI_MAXHIST = 100
+CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-; ]')
+CLI_INPUT_DENY_CMD = ['quit']
 
 # Screen setup
 SCREEN_XMIN = 78
@@ -390,6 +399,241 @@ class SocketData:
                     parse_stat(self.socket.recv())
 
 
+class CommandLineInterface:
+
+    def __init__(self, screen):
+        self.screen = screen
+
+        # Output
+        self.obuf = deque(maxlen=CLI_MAXLINES)
+        self.ypos = 0
+        self.wrapper = TextWrapper()
+        self.screenlines = []
+
+        # Input
+        #self.hist = deque(maxlen=CLI_MAXHIST) # TODO
+        self.ibuf = []
+        self.ibpos = 0
+        self.ibmin = 0
+
+
+    # INPUT
+    @property
+    def imin(self):
+        return self.screen.xmin + 2
+
+    @property
+    def imax(self):
+        return self.screen.xmax - 4
+
+    @property
+    def ispan(self):
+        return self.imax - self.imin
+
+    @property
+    def ipos(self):
+        return self.ibpos - self.ibmin
+
+    @property
+    def ibmax(self):
+        return self.ibmin + self.ispan
+
+    @property
+    def iblen(self):
+        return len(self.ibuf)
+
+    @property
+    def cmdline(self):
+        return ''.join(self.ibuf)
+
+    # OUTPUT
+    @property
+    def ospan(self):
+        return self.screen.span - 1
+
+
+    def setup(self):
+        self.ipad = curses.newpad(1, SCREEN_XMAX)               # input
+        self.opad = curses.newpad(SCREEN_YMAX, SCREEN_XMAX)     # output
+
+    def start(self):
+        curses.curs_set(1)
+        self.draw_output()
+        self.draw_input()
+
+    def stop(self):
+        curses.curs_set(0)
+
+    def update_screenlines(self):
+        self.wrapper.width = self.screen.xmax
+        self.screenlines = []
+        for line in self.obuf:
+            if len(line) > self.wrapper.width:
+                self.screenlines.extend(self.wrapper.wrap(line))
+            else:
+                self.screenlines.append(line)
+        self.ypos = len(self.screenlines)
+
+    def reset_input(self):
+        self.ibuf = []
+        self.ibpos = 0
+        self.ibmin = 0
+
+    def refresh_input(self, sync=False):
+        if sync:
+            refresh = self.ipad.refresh
+        else:
+            refresh = self.ipad.noutrefresh
+
+        refresh(0, 0,
+                self.screen.smax, self.screen.xmin,
+                self.screen.smax, self.screen.xmax - 1)
+
+    def refresh_output(self, sync=False):
+        if sync:
+            refresh = self.opad.refresh
+        else:
+            refresh = self.opad.noutrefresh
+
+        refresh(0, 0,
+                self.screen.smin, self.screen.xmin,
+                self.screen.smax - 2, self.screen.xmax - 1)
+
+    def draw_input(self):
+        self.ipad.clear()
+        self.ipad.addstr(0, 0, '> ', curses.A_BOLD)
+        self.ipad.addstr(0, 2, ''.join(self.ibuf[self.ibmin:self.ibmax]))
+
+        # Mark input lines longer than the visible input span
+        if self.ibmin > 0:
+            self.ipad.addstr(0, self.imin - 1, '<')
+        if self.iblen > self.ibmax:
+            self.ipad.addstr(0, self.imax, '>')
+
+        self.ipad.move(0, self.imin + self.ipos)
+
+    def draw_output(self):
+        self.opad.clear()
+        vmin = max(0, self.ypos - self.ospan)
+        vmax = vmin + self.ospan
+        lines = self.screenlines[vmin:vmax]
+        self.opad.addstr(0, 0, '\n'.join(lines))
+
+    # INPUT
+    def putc(self, c):
+        if not CLI_INPUT_RE.match(c):
+            return
+
+        if self.ibpos < self.iblen:
+            self.ibuf.insert(self.ibpos, c)
+        else:
+            self.ibuf.append(c)
+
+        self.mvc(1)
+
+    def delc(self, n):
+        if n == 0 or self.iblen == 0:
+            return
+
+        # Delete LEFT
+        elif n < 0 and self.ibpos >= 1:
+            self.ibuf.pop(self.ibpos - 1)
+            self.mvc(-1)
+
+        # Delete RIGHT
+        elif n > 0 and self.ibpos < self.iblen:
+            self.ibuf.pop(self.ibpos)
+            self.draw_input()
+            self.refresh_input(sync=True)
+
+    def mvhome(self):
+        self.ibmin = 0
+        self.ibpos = 0
+        self.draw_input()
+        self.refresh_input(sync=True)
+
+    def mvend(self):
+        self.ibmin = max(0, self.iblen - self.ispan)
+        self.ibpos = self.iblen
+        self.draw_input()
+        self.refresh_input(sync=True)
+
+    def mvc(self, n):
+        if n == 0:
+            return
+
+        # Move LEFT
+        elif n < 0:
+            self.ibpos = max(0, self.ibpos + n)
+            if self.ibpos < self.ibmin:
+                self.ibmin = self.ibpos
+
+        # Move RIGHT
+        elif n > 0:
+            self.ibpos = min(self.iblen, self.ibpos + n)
+            if self.ibpos > self.ibmax:
+                self.ibmin += n
+
+        self.draw_input()
+        self.refresh_input(sync=True)
+
+    # OUTPUT
+    def mvo(self, n):
+        if n == 0:
+            return
+
+        # Move UP
+        elif n < 0 and self.ypos > self.ospan:
+            self.ypos = max(self.ospan, self.ypos + n)
+
+        # Move DOWN
+        elif n > 0 and self.ypos < len(self.screenlines):
+            self.ypos = min(len(self.screenlines), self.ypos + n)
+
+        self.draw_output()
+        self.refresh_output(sync=True)
+
+    def execute(self):
+
+        # Nothing to do... print marker line instead.
+        if self.iblen == 0:
+            self.obuf.append('- %s %s\n' % (time.ctime(), '-' * 50))
+            self.update_screenlines()
+            self.draw_output()
+            self.refresh_output(sync=True)
+            self.refresh_input(sync=True)
+            return
+
+        # Validate each command on the command line
+        cmds = [cmd.strip() for cmd in
+                self.cmdline.split(HAPROXY_CLI_CMD_SEP)]
+
+        for pattern in CLI_INPUT_DENY_CMD:
+            for cmd in cmds:
+                if re.match(r'^\s*%s\s*$' % pattern, cmd):
+                    self.obuf.append('* command not allowed: %s' % cmd)
+                    self.update_screenlines()
+                    self.draw_output()
+                    self.refresh_output(sync=True)
+                    self.refresh_input(sync=True)
+                    return
+
+        # Execute...
+        self.obuf.append('* %s' % time.ctime())
+        self.obuf.append('> %s' % self.cmdline)
+
+        self.screen.data.socket.send(self.cmdline)
+        self.obuf.extend(self.screen.data.socket.recv())
+
+        self.update_screenlines()
+        self.draw_output()
+        self.refresh_output(sync=True)
+
+        self.reset_input()
+        self.draw_input()
+        self.refresh_input(sync=True)
+
+
 class Screen:
 
     def __init__(self, data, mid=1):
@@ -408,6 +652,7 @@ class Screen:
         self.cpos = 0
         self.hpos = SCREEN_HPOS
         self.help = HelpScreen(self)
+        self.cli = CommandLineInterface(self)
 
         self._mid = mid
         self._mode = self.modes[mid]
@@ -506,6 +751,12 @@ class Screen:
             self.ymax = min(ymax, SCREEN_YMAX)
 
         self.mode.sync(self)
+
+        # Force re-wrapping of the screenlines in CLI mode
+        if self.mid == 5:
+            self.cli.update_screenlines()
+            self.cli.draw_output()
+
         self.resized = False
 
     def reset(self):
@@ -519,6 +770,9 @@ class Screen:
 
         if self.mid == 0:
             self.help.refresh()
+        elif self.mid == 5:
+            self.cli.refresh_output()
+            self.cli.refresh_input()
 
         curses.doupdate()
 
@@ -530,8 +784,16 @@ class Screen:
         self.screen.erase()
 
     def switch_mode(self, mid):
+        if mid == 5 and self.data.socket.ro:
+            return # XXX: show warning instead?
+
         mode = self.modes[mid]
         mode.sync(self)
+
+        if self.mid != 5 and mid == 5:
+            self.cli.start()
+        elif self.mid == 5 and mid != 5:
+            self.cli.stop()
 
         self._mid, self._mode = mid, mode
 
@@ -1264,6 +1526,46 @@ def mainloop(screen, interval):
                     screen.cpos = min(screen.cmax, screen.cpos + 10)
                 if screen.cpos == screen.cmax and screen.vmin < maxvmin:
                     screen.vmin = min(maxvmin, screen.vmin + 10)
+
+        # -> CLI
+        elif screen.mid == 5:
+
+            # enter
+            if c == curses.KEY_ENTER or c == curses.ascii.CR:
+                screen.cli.execute()
+
+            # input movements
+            elif c == curses.KEY_LEFT:
+                screen.cli.mvc(-1)
+            elif c == curses.KEY_RIGHT:
+                screen.cli.mvc(1)
+            elif c == curses.ascii.SOH or c == curses.KEY_HOME:
+                screen.cli.mvhome()
+            elif c == curses.ascii.ENQ or c == curses.KEY_END:
+                screen.cli.mvend()
+
+            # input editing
+            elif c == curses.ascii.ETB:
+                pass # TODO (CTRL-W)
+            elif c == curses.KEY_DC:
+                screen.cli.delc(1)
+            elif c == curses.KEY_BACKSPACE or c == curses.ascii.DEL:
+                screen.cli.delc(-1)
+
+            # input history
+            elif c == curses.KEY_UP:
+                pass # TODO
+            elif c == curses.KEY_DOWN:
+                pass # TODO
+
+            # output history
+            elif c == curses.KEY_PPAGE:
+                screen.cli.mvo(-10)
+            elif c == curses.KEY_NPAGE:
+                screen.cli.mvo(10)
+
+            elif 0 < c < 256:
+                screen.cli.putc(chr(c))
 
         # Force screen update with existing data if key was a movement key
         if c in [
