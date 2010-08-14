@@ -1583,6 +1583,10 @@ def mainloop(screen, interval):
                 pass # TODO
 
             # output history
+            elif c == curses.KEY_SR:
+                screen.cli.mvo(-1)
+            elif c == curses.KEY_SF:
+                screen.cli.mvo(1)
             elif c == curses.KEY_PPAGE:
                 screen.cli.mvo(-10)
             elif c == curses.KEY_NPAGE:
@@ -1595,6 +1599,8 @@ def mainloop(screen, interval):
         if c in [
             curses.KEY_UP,
             curses.KEY_DOWN,
+            curses.KEY_SR,
+            curses.KEY_SF,
             curses.KEY_PPAGE,
             curses.KEY_NPAGE,
         ] or screen.mid != 5 and c in [
