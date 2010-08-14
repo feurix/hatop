@@ -129,12 +129,16 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.4'
+__version__   = '0.4.5'
 
+import fcntl
 import os
 import re
+import signal
+import struct
 import sys
 import time
+import tty
 
 import curses
 import curses.ascii
@@ -410,29 +414,12 @@ class Screen:
         self._mid = mid
         self._mode = self.modes[mid]
 
-    def setup(self):
-        self.screen = curses_init()
-        self.screen.keypad(1)
-        self.screen.nodelay(1)
-        self.screen.idlok(1)
-        self.screen.move(0, 0)
-        curses.def_prog_mode()
-        self.help.setup()
+        # Toggled by the SIGWINCH handler...
+        # Note: Defaults to true to force the initial size sync.
+        self.resized = True
 
-    def reset(self):
-        curses_reset(self.screen)
-
-    def recover(self):
-        curses.reset_prog_mode()
-
-    def refresh(self):
-        self.screen.noutrefresh()
-        if self.mid == 0:
-            self.help.refresh()
-        curses.doupdate()
-
-    def clear(self):
-        self.screen.erase()
+    def _sigwinchhandler(self, signum, frame):
+        self.resized = True
 
     @property
     def mid(self):
@@ -442,20 +429,9 @@ class Screen:
     def mode(self):
         return self._mode
 
-    def switch_mode(self, mid):
-        if mid == 5 and self.data.socket.ro:
-            return
-        mode = self.modes[mid]
-        mode.sync_size(self)
-        self._mid, self._mode = mid, mode
-
-    # Proxies
-    def getch(self, *args, **kwargs):
-        return self.screen.getch(*args, **kwargs)
-    def hline(self, *args, **kwargs):
-        return self.screen.hline(*args, **kwargs)
-    def addstr(self, *args, **kwargs):
-        return self.screen.addstr(*args, **kwargs)
+    @property
+    def ncols(self):
+        return self.xmax - self.xmin
 
     @property
     def smin(self):
@@ -463,7 +439,7 @@ class Screen:
 
     @property
     def smax(self):
-        return self.ymax - 2
+        return self.ymax - 3
 
     @property
     def span(self):
@@ -471,7 +447,7 @@ class Screen:
 
     @property
     def cmax(self):
-        return min(self.span, len(self.lines)) - 1
+        return min(self.span, len(self.lines))
 
     @property
     def cstat(self):
@@ -489,20 +465,77 @@ class Screen:
     def screenlines(self):
         return enumerate(self.lines[self.vmin:self.vmax])
 
-    def sync_size(self):
-        updated = False
+    # Proxies
+    def getch(self, *args, **kwargs):
+        return self.screen.getch(*args, **kwargs)
+    def hline(self, *args, **kwargs):
+        return self.screen.hline(*args, **kwargs)
+    def addstr(self, *args, **kwargs):
+        return self.screen.addstr(*args, **kwargs)
+
+    def setup(self):
+        self.screen = curses_init()
+        self.screen.keypad(1)
+        self.screen.nodelay(1)
+        self.screen.idlok(1)
+        self.screen.move(0, 0)
+        curses.def_prog_mode()
+        self.help.setup()
+        self.cli.setup()
+
+        # Register some terminal resizing magic if supported...
+        if hasattr(curses, 'resize_term') and hasattr(signal, 'SIGWINCH'):
+            signal.signal(signal.SIGWINCH, self._sigwinchhandler)
+
+    def resize(self):
+        self.clear()
+        size = fcntl.ioctl(0, tty.TIOCGWINSZ, '12345678')
+        size = struct.unpack('4H', size)
+        curses.resize_term(size[0], size[1])
+
         ymax, xmax = self.screen.getmaxyx()
+
+        if ymax == self.ymax and xmax == self.xmax:
+            self.resized = False
+            return
         if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
-            raise RuntimeError('screen too small, need at least %dx%d' % (
-                    SCREEN_XMIN, SCREEN_YMIN))
+            raise RuntimeError(
+                    'screen too small, need at least %dx%d'
+                    % (SCREEN_XMIN, SCREEN_YMIN))
         if xmax != self.xmax:
             self.xmax = min(xmax, SCREEN_XMAX)
-            updated = True
         if ymax != self.ymax:
             self.ymax = min(ymax, SCREEN_YMAX)
-            updated = True
-        if updated:
-            self.mode.sync_size(self)
+
+        self.mode.sync(self)
+        self.resized = False
+
+    def reset(self):
+        curses_reset(self.screen)
+
+    def recover(self):
+        curses.reset_prog_mode()
+
+    def refresh(self):
+        self.screen.noutrefresh()
+
+        if self.mid == 0:
+            self.help.refresh()
+
+        curses.doupdate()
+
+    def clear(self):
+        # Note: Forces the whole screen to be repainted upon refresh()
+        self.screen.clear()
+
+    def erase(self):
+        self.screen.erase()
+
+    def switch_mode(self, mid):
+        mode = self.modes[mid]
+        mode.sync(self)
+
+        self._mid, self._mode = mid, mode
 
     def update_data(self):
         self.data.update_info()
@@ -615,9 +648,7 @@ class Screen:
     def draw_mode(self):
         if self.mid == 0:
             self.help.draw_text(__doc__)
-        elif self.mid == 5:
-            run_cli(self)
-        else:
+        elif self.mid != 5:
             self.draw_stat()
 
 
@@ -658,7 +689,7 @@ class ScreenMode:
     def head(self):
         return get_head(self)
 
-    def sync_size(self, screen):
+    def sync(self, screen):
         for idx, column in enumerate(self.columns):
             column.width = get_width(column.minwidth, screen.xmax,
                     len(self.columns), idx)
@@ -1081,9 +1112,6 @@ def get_screenline(mode, stat):
 
     return SPACE.join(cells)
 
-def run_cli(screen):
-    pass # TODO
-
 # ------------------------------------------------------------------------- #
 #                            CURSES HELPERS                                 #
 # ------------------------------------------------------------------------- #
@@ -1127,8 +1155,13 @@ def mainloop(screen, interval):
     switch = False      # Toggle mode / viewport switch
 
     while True:
-        screen.sync_size()
 
+        # Resize toggled by SIGWINCH?
+        if screen.resized:
+            screen.resize()
+            refresh = True
+
+        # Update interval reached...
         if i == iterations:
             i = 0
             update = True
@@ -1143,8 +1176,7 @@ def mainloop(screen, interval):
                 screen.update_lines()
                 update = False
 
-            # Update screen
-            screen.clear()
+            screen.erase()
             screen.draw_head()
             screen.draw_info()
             screen.draw_cols()
@@ -1304,7 +1336,6 @@ if __name__ == '__main__':
     data = SocketData(socket)
     screen = Screen(data, opts.mode)
 
-    import signal
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
 
     from socket import error as SocketError
