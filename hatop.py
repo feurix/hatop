@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.4.5'
+__version__   = '0.4.6'
 
 import fcntl
 import os
@@ -272,8 +272,6 @@ PREFIX_TIME = {
         60*60:   'h',
         60*60*24:'d',
 }
-
-SPACE = ' '
 
 # ------------------------------------------------------------------------- #
 #                           CLASS DEFINITIONS                               #
@@ -557,7 +555,7 @@ class Screen:
 
     def draw_line(self, ypos, xpos=0, text=None,
             attr=curses.A_REVERSE):
-        self.hline(ypos, self.xmin, SPACE, self.xmax, attr)
+        self.hline(ypos, self.xmin, ' ', self.xmax, attr)
         if text:
             self.addstr(ypos, self.xmin + xpos, text, attr)
 
@@ -1057,7 +1055,7 @@ def get_head(mode):
         s = column.header
         s = get_cell(column.width, column.align, s)
         columns.append(s)
-    return SPACE.join(columns)
+    return ' '.join(columns)
 
 def get_screenlines(stat):
     screenlines = []
@@ -1110,7 +1108,7 @@ def get_screenline(mode, stat):
         value = trim(value, column.width)
         cells.append(get_cell(column.width, column.align, value))
 
-    return SPACE.join(cells)
+    return ' '.join(cells)
 
 # ------------------------------------------------------------------------- #
 #                            CURSES HELPERS                                 #
