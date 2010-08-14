@@ -38,21 +38,24 @@ while 1:
     conn, addr = s.accept()
 
     while 1:
-        data = conn.recv(1024)
+        data = conn.recv(1024).strip()
         print('--- %s' % time.ctime())
-        print('recv: %s' % data.strip())
-        if not data or data.startswith('quit'):
+        print('<<< %s' % data)
+        if not data:
+            continue
+        if data == 'quit':
             break
         elif data.startswith('show info'):
-            print('send: info...')
+            print('>>> info...')
             conn.sendall(data_info)
         elif data.startswith('show stat'):
-            print('send: stat...')
+            print('>>> stat...')
             conn.sendall(data_stat)
-        print('send: empty line (end of response)')
+        print('>>> empty line (end of response)')
         conn.sendall('\n')
-        print('send: prompt')
+        print('>>> prompt')
         conn.sendall(SOCKET_PROMPT)
+        print('--- %s\n' % time.ctime())
 
     conn.close()
 
