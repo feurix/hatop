@@ -1946,4 +1946,4 @@ if __name__ == '__main__':
 
     sys.exit(0)
 
-# vim: et sw=4 tw=78 fdn=1 fdm=indent
+# vim: et sw=4 sts=4 ts=4 tw=78 fdn=1 fdm=indent
