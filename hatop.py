@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.6.1'
+__version__   = '0.6.2'
 
 import fcntl
 import os
@@ -1614,63 +1614,71 @@ def mainloop(screen, interval):
                     screen.vmin = screen.vmax - screen.cpos - 1
 
             # actions
-            elif c == curses.KEY_F4:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+            elif c in [
+                    curses.KEY_F4,
+                    curses.KEY_F5,
+                    curses.KEY_F6,
+                    curses.KEY_F7,
+                    curses.KEY_F8,
+                    curses.KEY_F9,
+                    curses.KEY_F10,
+            ] and screen.cstat:
+
+                iid = screen.cstat['iid']
+                sid = screen.cstat['sid']
+
+                notify = False
+
+                if c == curses.KEY_F4:
                     if iid > 0 and sid > 0:
                         screen.cli.execute_cmdline(
                                 'set weight #%d/#%d 100%%' % (iid, sid))
-            elif c == curses.KEY_F5:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+                        notify = True
+                elif c == curses.KEY_F5:
                     curweight = screen.cstat['weight']
                     if iid > 0 and sid > 0 and curweight > 0:
                         weight = max(0, curweight - 10)             # - 10
                         screen.cli.execute_cmdline(
                                 'set weight #%d/#%d %d' % (iid, sid, weight))
-            elif c == curses.KEY_F6:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+                        notify = True
+                elif c == curses.KEY_F6:
                     curweight = screen.cstat['weight']
                     if iid > 0 and sid > 0 and curweight > 0:
                         weight = max(0, curweight - 1)              # - 1
                         screen.cli.execute_cmdline(
                                 'set weight #%d/#%d %d' % (iid, sid, weight))
-            elif c == curses.KEY_F7:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+                        notify = True
+                elif c == curses.KEY_F7:
                     curweight = screen.cstat['weight']
                     if iid > 0 and sid > 0 and curweight < 256:
                         weight = min(256, curweight + 1)            # + 1
                         screen.cli.execute_cmdline(
                                 'set weight #%d/#%d %d' % (iid, sid, weight))
-            elif c == curses.KEY_F8:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+                        notify = True
+                elif c == curses.KEY_F8:
                     curweight = screen.cstat['weight']
                     if iid > 0 and sid > 0 and curweight < 256:
                         weight = min(256, curweight + 10)           # + 10
                         screen.cli.execute_cmdline(
                                 'set weight #%d/#%d %d' % (iid, sid, weight))
-            elif c == curses.KEY_F9:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+                        notify = True
+                elif c == curses.KEY_F9:
                     if iid > 0 and sid > 0:
                         screen.cli.execute_cmdline(
                                 'enable server #%d/#%d' % (iid, sid))
-            elif c == curses.KEY_F10:
-                if screen.cstat:
-                    iid = screen.cstat['iid']
-                    sid = screen.cstat['sid']
+                        notify = True
+                elif c == curses.KEY_F10:
                     if iid > 0 and sid > 0:
                         screen.cli.execute_cmdline(
                                 'disable server #%d/#%d' % (iid, sid))
+                        notify = True
+
+                # Refresh the screen indicating pending changes...
+                if notify:
+                    screen.cstat['svname'] = 'updating...'
+                    update = False
+                    refresh = True
+                    continue
 
         # -> CLI
         elif screen.mid == 5:
