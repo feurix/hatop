@@ -162,7 +162,7 @@ HAPROXY_CLI_MAXLINES = 1000
 CLI_MAXLINES = 1000
 CLI_MAXHIST = 100
 CLI_INPUT_LIMIT = 200
-CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-; ]')
+CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-\+; /#%]')
 CLI_INPUT_DENY_CMD = ['prompt', 'quit']
 
 # Note: Only the last 3 lines are visible instantly on 80x25
