@@ -753,7 +753,7 @@ class Screen:
 
     @property
     def cmax(self):
-        return min(self.span, len(self.lines))
+        return min(self.span, len(self.lines) - 1)
 
     @property
     def cstat(self):
@@ -1603,9 +1603,12 @@ def mainloop(screen, interval):
                 screen.cpos = screen.cmin
                 screen.vmin = 0
             elif c == curses.ascii.ENQ or c == curses.KEY_END:
-                maxvmin = len(screen.lines) - screen.cmax - 2
+                nlines = len(screen.lines)
                 screen.cpos = screen.cmax
-                screen.vmin = maxvmin
+                if nlines > screen.span:
+                    screen.vmin = nlines - screen.cmax - 2
+                else:
+                    screen.vmin = screen.vmax - screen.cpos - 1
 
         # -> CLI
         elif screen.mid == 5:
