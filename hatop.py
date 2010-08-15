@@ -669,14 +669,8 @@ class ScreenCLI:
                     self.refresh_input(sync=True)
                     return
 
-        # Execute...
-        self.obuf.append('* %s' % time.ctime())
-        self.obuf.append('> %s' % self.cmdline)
+        self.execute_cmdline(self.cmdline)
 
-        self.screen.data.socket.send(self.cmdline)
-        self.obuf.extend(self.screen.data.socket.recv())
-
-        self.update_screenlines()
         self.draw_output()
         self.refresh_output(sync=True)
 
@@ -684,6 +678,13 @@ class ScreenCLI:
         self.reset_input()
         self.draw_input()
         self.refresh_input(sync=True)
+
+    def execute_cmdline(self, cmdline):
+        self.obuf.append('* %s' % time.ctime())
+        self.obuf.append('> %s' % cmdline)
+        self.screen.data.socket.send(cmdline)
+        self.obuf.extend(self.screen.data.socket.recv())
+        self.update_screenlines()
 
 
 class Screen:
