@@ -849,7 +849,7 @@ class Screen:
 
     def switch_mode(self, mid):
         if mid == 5 and self.data.socket.ro:
-            return # XXX: show warning instead?
+            return # noop
 
         mode = self.modes[mid]
         mode.sync(self)
