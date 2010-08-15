@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.6'
+__version__   = '0.5.7'
 
 import fcntl
 import os
@@ -161,6 +161,7 @@ HAPROXY_CLI_MAXLINES = 1000
 # Settings of the embedded CLI
 CLI_MAXLINES = 1000
 CLI_MAXHIST = 100
+CLI_INPUT_LIMIT = 200
 CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-; ]')
 CLI_INPUT_DENY_CMD = ['quit']
 
@@ -568,6 +569,8 @@ class ScreenCLI:
         self.mvend()
 
     def putc(self, c):
+        if len(self.ibuf) == CLI_INPUT_LIMIT:
+            return
         if not CLI_INPUT_RE.match(c):
             return
 
