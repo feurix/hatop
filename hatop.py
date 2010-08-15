@@ -176,6 +176,7 @@ CLI_HELP_TEXT = '''\
  |--------------------------------------------------------------------------|
  | ENTER               execute cmdline or display marker if input empty     |
  |--------------------------------------------------------------------------|
+ | UP / DOWN           scroll input history up or down                      |
  | LEFT / RIGHT        move input cursor one character to the left or right |
  | HOME / END          move input cursor to the beginning or end of line    |
  | BACKSPACE / DEL     delete one character backwards or forwards           |
