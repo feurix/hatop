@@ -45,6 +45,34 @@ Key Mode    Description
 Hh? HELP    Display this help screen
 Qq  -       Quit
 
+Use ALT-n or ESC-n to escape the CLI, where n is the target viewport.
+
+You can scroll the stat views using UP / DOWN / PGUP / DOWN / HOME / END.
+The cursor line can be used to select a given service instance. The
+unique identifier [IID=<proxy id> SID=<service id>] of this service is
+displayed bottom right for easy re-use with some CLI commands, e.g.:
+
+    > disable server #<iid>/#<sid>
+
+Some common administrative actions have hotkeys:
+
+Hotkey      Action
+
+F4          Restore initial server weight
+
+F5          Decrease server weight:     - 10
+F6          Decrease server weight:     -  1
+F7          Increase server weight:     +  1
+F8          Increase server weight:     + 10
+
+F9          Enable server (return from maintenance mode)
+F10         Disable server (put into maintenance mode)
+
+Hotkey actions and server responses are logged on the CLI viewport.
+You can scroll the output on the CLI view using PGUP / PGDOWN.
+A brief keybind reference is logged there directly after startup...
+
+
 Header reference:
 
 Node        configured name of the haproxy node
