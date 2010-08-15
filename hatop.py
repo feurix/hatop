@@ -157,7 +157,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.6.2'
+__version__   = '0.6.3'
 
 import fcntl
 import os
@@ -1642,7 +1642,7 @@ def mainloop(screen, interval):
                     screen.vmin = screen.vmax - screen.cpos - 1
 
             # actions
-            elif c in [
+            elif not screen.data.socket.ro and c in [
                     curses.KEY_F4,
                     curses.KEY_F5,
                     curses.KEY_F6,
