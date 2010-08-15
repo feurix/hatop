@@ -48,9 +48,19 @@ Qq  -       Quit
 Use ALT-n or ESC-n to escape the CLI, where n is the target viewport.
 
 You can scroll the stat views using UP / DOWN / PGUP / DOWN / HOME / END.
-The cursor line can be used to select a given service instance. The
-unique identifier [IID=<proxy id> SID=<service id>] of this service is
-displayed bottom right for easy re-use with some CLI commands, e.g.:
+The cursor line can be used to select a given service instance.
+
+The unique identifier [IID=<proxy id> SID=<service id>] of the selected
+service is displayed bottom right. You can hit SPACE to copy and paste the
+identifier to the CLI for easy re-use with some commands. For example:
+
+1) Open the CLI
+2) Type "disable server "
+3) Switch back to some stat view
+4) Select the server instance
+5) Hit SPACE
+
+The result is this command line:
 
     > disable server #<iid>/#<sid>
 
@@ -157,7 +167,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.6.3'
+__version__   = '0.6.4'
 
 import fcntl
 import os
@@ -596,6 +606,22 @@ class ScreenCLI:
         self.ihist.rotate(-1)
         self.ibuf = list(self.ihist[-1])
         self.mvend()
+
+    def puts(self, s):
+        s = list(s)
+        if len(self.ibuf) + len(s) >= CLI_INPUT_LIMIT:
+            return
+        for c in s:
+            if not CLI_INPUT_RE.match(c):
+                return
+
+        if self.ibpos < self.iblen:
+            self.ibuf = self.ibuf[:self.ibpos] + s + self.ibuf[self.ibpos:]
+        else:
+            self.ibuf.extend(s)
+
+        self.mvc(len(s))
+        return True
 
     def putc(self, c):
         if len(self.ibuf) == CLI_INPUT_LIMIT:
@@ -1642,7 +1668,8 @@ def mainloop(screen, interval):
                     screen.vmin = screen.vmax - screen.cpos - 1
 
             # actions
-            elif not screen.data.socket.ro and c in [
+            elif c in [
+                    ' ',
                     curses.KEY_F4,
                     curses.KEY_F5,
                     curses.KEY_F6,
@@ -1650,14 +1677,20 @@ def mainloop(screen, interval):
                     curses.KEY_F8,
                     curses.KEY_F9,
                     curses.KEY_F10,
-            ] and screen.cstat:
+            ] and not screen.data.socket.ro and screen.cstat:
 
                 iid = screen.cstat['iid']
                 sid = screen.cstat['sid']
 
                 notify = False
 
-                if c == curses.KEY_F4:
+                if c == ' ' and iid > 0 and sid > 0:
+                    if screen.cli.puts('#%d/#%d' % (iid, sid)):
+                        screen.switch_mode(5)
+                        update = False
+                        refresh = True
+                        continue
+                elif c == curses.KEY_F4:
                     if iid > 0 and sid > 0:
                         screen.cli.execute_cmdline(
                                 'set weight #%d/#%d 100%%' % (iid, sid))
