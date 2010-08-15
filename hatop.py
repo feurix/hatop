@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.6.0'
+__version__   = '0.6.1'
 
 import fcntl
 import os
@@ -1614,6 +1614,13 @@ def mainloop(screen, interval):
                     screen.vmin = screen.vmax - screen.cpos - 1
 
             # actions
+            elif c == curses.KEY_F4:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    if iid > 0 and sid > 0:
+                        screen.cli.execute_cmdline(
+                                'set weight #%d/#%d 100%%' % (iid, sid))
             elif c == curses.KEY_F5:
                 if screen.cstat:
                     iid = screen.cstat['iid']
