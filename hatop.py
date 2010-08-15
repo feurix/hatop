@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.9'
+__version__   = '0.6.0'
 
 import fcntl
 import os
@@ -1578,6 +1578,8 @@ def mainloop(screen, interval):
 
         # -> STATUS / TRAFFIC / HTTP / ERRORS
         elif 1 <= screen.mid <= 4:
+
+            # movements
             if c == curses.KEY_UP:
                 if screen.cpos > screen.cmin:
                     screen.cpos -= 1
@@ -1610,6 +1612,58 @@ def mainloop(screen, interval):
                     screen.vmin = nlines - screen.cmax - 2
                 else:
                     screen.vmin = screen.vmax - screen.cpos - 1
+
+            # actions
+            elif c == curses.KEY_F5:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    curweight = screen.cstat['weight']
+                    if iid > 0 and sid > 0 and curweight > 0:
+                        weight = max(0, curweight - 10)             # - 10
+                        screen.cli.execute_cmdline(
+                                'set weight #%d/#%d %d' % (iid, sid, weight))
+            elif c == curses.KEY_F6:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    curweight = screen.cstat['weight']
+                    if iid > 0 and sid > 0 and curweight > 0:
+                        weight = max(0, curweight - 1)              # - 1
+                        screen.cli.execute_cmdline(
+                                'set weight #%d/#%d %d' % (iid, sid, weight))
+            elif c == curses.KEY_F7:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    curweight = screen.cstat['weight']
+                    if iid > 0 and sid > 0 and curweight < 256:
+                        weight = min(256, curweight + 1)            # + 1
+                        screen.cli.execute_cmdline(
+                                'set weight #%d/#%d %d' % (iid, sid, weight))
+            elif c == curses.KEY_F8:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    curweight = screen.cstat['weight']
+                    if iid > 0 and sid > 0 and curweight < 256:
+                        weight = min(256, curweight + 10)           # + 10
+                        screen.cli.execute_cmdline(
+                                'set weight #%d/#%d %d' % (iid, sid, weight))
+            elif c == curses.KEY_F9:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    if iid > 0 and sid > 0:
+                        screen.cli.execute_cmdline(
+                                'enable server #%d/#%d' % (iid, sid))
+            elif c == curses.KEY_F10:
+                if screen.cstat:
+                    iid = screen.cstat['iid']
+                    sid = screen.cstat['sid']
+                    if iid > 0 and sid > 0:
+                        screen.cli.execute_cmdline(
+                                'disable server #%d/#%d' % (iid, sid))
 
         # -> CLI
         elif screen.mid == 5:
