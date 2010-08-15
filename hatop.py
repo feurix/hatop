@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.7'
+__version__   = '0.5.8'
 
 import fcntl
 import os
@@ -185,8 +185,8 @@ CLI_HELP_TEXT = '''\
  `--------------------------------------------------------------------------'
 
              Welcome on the embedded interactive HAProxy shell!
+
                   Type `help' to get a command reference
-                        Use PGUP/PGDOWN to scroll
 '''
 
 # Screen setup
@@ -953,6 +953,8 @@ class Screen:
         if 0 < self.mid < 5 and self.cstat:
             s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (
                     self.cstat['iid'], self.cstat['sid'])
+        elif self.mid == 5:
+            s = 'PGUP/PGDOWN=SCROLL'
         else:
             s = 'UP/DOWN=SCROLL H=HELP Q=QUIT'
         self.addstr(ypos, self.xmax - len(s) - 1, s, attr_inactive)
@@ -1245,7 +1247,9 @@ SCREEN_MODES[4].columns = [
 
 # Mode: CLI          name            header     xmin    xmax    align
 SCREEN_MODES[5].columns = [
-        ScreenColumn('cli', ' haproxy command line',
+        ScreenColumn('cli',
+            ' haproxy command line                              '
+            ' use ALT-n / ESC-n to escape',
                                          SCREEN_XMIN,      0,    'L'),
 ]
 
