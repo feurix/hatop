@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.5'
+__version__   = '0.5.6'
 
 import fcntl
 import os
@@ -434,7 +434,7 @@ class ScreenCLI:
         self.screenlines = []
 
         # Input
-        #self.hist = deque(maxlen=CLI_MAXHIST) # TODO
+        self.ihist = deque(maxlen=CLI_MAXHIST)
         self.ibuf = []
         self.ibpos = 0
         self.ibmin = 0
@@ -547,6 +547,26 @@ class ScreenCLI:
         self.opad.addstr(0, 0, '\n'.join(lines))
 
     # INPUT
+    def prev(self):
+        if len(self.ihist) == 0:
+            return
+        if len(self.ibuf) == 0:
+            self.ibuf = list(self.ihist[-1])
+            self.mvend()
+            return
+        if self.ibuf != self.ihist[-1]:
+            self.ihist.append(self.ibuf)
+        self.ihist.rotate(1)
+        self.ibuf = list(self.ihist[-1])
+        self.mvend()
+
+    def next(self):
+        if len(self.ihist) == 0:
+            return
+        self.ihist.rotate(-1)
+        self.ibuf = list(self.ihist[-1])
+        self.mvend()
+
     def putc(self, c):
         if not CLI_INPUT_RE.match(c):
             return
@@ -656,6 +676,7 @@ class ScreenCLI:
         self.draw_output()
         self.refresh_output(sync=True)
 
+        self.ihist.append(self.ibuf)
         self.reset_input()
         self.draw_input()
         self.refresh_input(sync=True)
@@ -1605,9 +1626,9 @@ def mainloop(screen, interval):
 
             # input history
             elif c == curses.KEY_UP:
-                pass # TODO
+                screen.cli.prev()
             elif c == curses.KEY_DOWN:
-                pass # TODO
+                screen.cli.next()
 
             # output history
             elif c == curses.KEY_PPAGE:
