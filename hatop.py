@@ -129,7 +129,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.5.8'
+__version__   = '0.5.9'
 
 import fcntl
 import os
@@ -1684,7 +1684,7 @@ if __name__ == '__main__':
 
     opts = OptionGroup(parser, 'Optional')
     opts.add_option('-i', '--update-interval', type='int', dest='interval',
-            help='update interval in seconds (1-30, default: 5)', default=5)
+            help='update interval in seconds (1-30, default: 2)', default=2)
     opts.add_option('-m', '--mode', type='int', dest='mode',
             help='start in specific mode (1-5, default: 1)', default=1)
     opts.add_option('-n', '--read-only', action='store_true', dest='ro',
