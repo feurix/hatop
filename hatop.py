@@ -35,22 +35,31 @@ Note: It is important to understand that when multiple haproxy processes
       and thus hatop will output stats owned solely by that process.
       The current haproxy-internal process id is displayed top right.
 
-Key Mode    Description
+Display mode reference:
+
+ID  Mode    Description
 
 1   STATUS  The default mode with health, session and queue statistics
 2   TRAFFIC Display connection and request rates as well as traffic stats
 3   HTTP    Display various statistical information related to HTTP
 4   ERRORS  Display health info, various error counters and downtimes
 5   CLI     Display embedded command line client for the unix socket
-Hh? HELP    Display this help screen
-Qq  -       Quit
 
-Use ALT-n or ESC-n to escape the CLI, where n is the target viewport.
+Keybind reference:
+
+Key             Action
+
+Hh?             Display this help screen
+TAB             Cycle through all modes
+ESC-ESC         Jump to previous mode
+ALT-n / ESC-n   Switch to mode n, where n is the numeric mode id
+CTRL-C / Qq     Quit
 
 You can scroll the stat views using UP / DOWN / PGUP / DOWN / HOME / END.
-The cursor line can be used to select a given service instance.
 
-The unique identifier [IID=<proxy id> SID=<service id>] of the selected
+The reverse colored cursor line is used to select a given service instance.
+
+An unique identifier [IID=<proxy id> SID=<service id>] of the selected
 service is displayed bottom right. You can hit SPACE to copy and paste the
 identifier to the CLI for easy re-use with some commands. For example:
 
@@ -167,7 +176,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.6.4'
+__version__   = '0.6.5'
 
 import fcntl
 import os
@@ -761,7 +770,8 @@ class Screen:
         self.help = ScreenHelp(self)
         self.cli = ScreenCLI(self)
 
-        self._mid = mid
+        self._pmid = mid # previous mode id
+        self._cmid = mid # current mode id
         self._mode = self.modes[mid]
 
         # Assume a dumb TTY, setup() will detect smart features.
@@ -784,7 +794,7 @@ class Screen:
 
     @property
     def mid(self):
-        return self._mid
+        return self._cmid
 
     @property
     def mode(self):
@@ -915,7 +925,31 @@ class Screen:
         elif self.mid == 5 and mid != 5:
             self.cli.stop()
 
-        self._mid, self._mode = mid, mode
+        self._pmid = self._cmid
+        self._cmid, self._mode = mid, mode
+
+    def toggle_mode(self):
+        if self._pmid == self._cmid:
+            return
+        self.switch_mode(self._pmid)
+
+    def cycle_mode(self, n):
+        if n == 0:
+            return
+
+        if self.data.socket.ro:
+            border = 4
+        else:
+            border = 5
+
+        if self._cmid == 0:
+            self.switch_mode(1)
+        elif n < 0 and self._cmid == 1:
+            self.switch_mode(border)
+        elif n > 0 and self._cmid == border:
+            self.switch_mode(1)
+        else:
+            self.switch_mode(self._cmid + n)
 
     def update_data(self):
         self.data.update_info()
@@ -1580,15 +1614,30 @@ def mainloop(screen, interval):
         if c == curses.ascii.ETX:
             raise KeyboardInterrupt()
 
-        # Mode switch (ALT-n / ESC-n)
+        # Mode switch (ALT-n / ESC-n) or toggle (ESC / ESC-ESC)
         if c == curses.ascii.ESC:
             c = screen.getch()
             if c < 0 or c == curses.ascii.ESC:
-                raise StopIteration()
+                screen.toggle_mode()
+                update = False
+                refresh = True
+                continue
             if 0 < c < 256:
                 c = chr(c)
                 if c in 'qQHh?12345':
                     switch = True
+
+        # Mode cycle (TAB / BTAB)
+        elif c == ord('\t'):
+            screen.cycle_mode(1)
+            update = False
+            refresh = True
+            continue
+        elif c == curses.KEY_BTAB:
+            screen.cycle_mode(-1)
+            update = False
+            refresh = True
+            continue
 
         # Mode switch in non-CLI modes using the number only
         elif 0 <= screen.mid < 5 and 0 < c < 256:
