@@ -1,0 +1,4 @@
+.. _readme:
+
+.. include:: ../README
+

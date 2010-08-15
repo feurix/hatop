@@ -1,0 +1,23 @@
+{% extends "!layout.html" %}
+{% block rootrellink %}
+        <li><img src="{{ pathto('_static/glider.png', 1) }}" alt=""
+                 style="vertical-align: middle"/></li>
+        <li><a href="http://www.feurix.org/">Feurix Free Open Source Projects</a>{{ reldelim1 }}</li>
+        <li><a href="{{ pathto('index') }}">{{ shorttitle }}</a>{{ reldelim1 }}</li>
+{% endblock %}
+{% block extrahead %}
+    <link rel="shortcut icon" type="image/png" href="{{ pathto('_static/glider.png', 1) }}" />
+{{ super() }}
+{% endblock %}
+{% block sidebarlogo %}
+    <a href="http://feurix.org/projects/hatop/">
+      <img src="{{ pathto('_static/logo.png', 1) }}" alt="HATop Project" />
+    </a>
+{% endblock %}
+{% block footer %}
+    <div class="footer">
+    &copy; <a href="{{ pathto('copyright') }}">Copyright</a> {{ copyright|e }}.
+    Last updated on {{ last_updated|e }}.
+    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> {{ sphinx_version|e }}.
+    </div>
+{% endblock %}
