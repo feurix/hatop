@@ -84,7 +84,7 @@ html_theme = 'default'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'HATop: interactive ncurses client for the haproxy unix socket'
+html_title = 'HATop: Interactive ncurses client for HAProxy'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 html_short_title = 'HATop'
