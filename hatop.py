@@ -176,12 +176,13 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.7.1'
+__version__   = '0.7.2'
 
 import fcntl
 import os
 import re
 import signal
+import socket
 import struct
 import sys
 import time
@@ -189,6 +190,9 @@ import tty
 
 import curses
 import curses.ascii
+
+from socket import error as SocketError
+from _curses import error as CursesError
 
 from collections import deque
 from textwrap import TextWrapper
@@ -363,18 +367,30 @@ class Socket:
     def __init__(self, path, readonly=False):
         self.path = path
         self.ro = readonly
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-        from socket import socket, AF_UNIX, SOCK_STREAM
-        self._socket = socket(AF_UNIX, SOCK_STREAM)
+    def _recv(self):
+        # socket.recv() wrapper raising SocketError if we receive
+        # EOF before seeing the interactive socket prompt.
+        data = self._socket.recv(HAPROXY_CLI_BUFSIZE)
+        if not data:
+            raise SocketError('error while waiting for prompt')
+        return data
 
     def connect(self):
-        # Initialize interactive socket connection
+        # Initialize socket connection
         self._socket.connect(self.path)
         self._socket.settimeout(HAPROXY_CLI_CMD_TIMEOUT)
-        self.send('prompt')
-        self.wait()
-        self.send('set timeout cli %d' % HAPROXY_CLI_TIMEOUT)
-        self.wait()
+
+        # Enter the interactive socket mode. This requires HAProxy 1.4+ and
+        # allows us to error out early if connected to an older version.
+        try:
+            self.send('prompt')
+            self.wait()
+            self.send('set timeout cli %d' % HAPROXY_CLI_TIMEOUT)
+            self.wait()
+        except SocketError:
+            raise SocketError('error while initializing interactive mode')
 
     def close(self):
         try:
@@ -393,20 +409,24 @@ class Socket:
         # Wait for the prompt and discard data.
         rbuf = ''
         while not rbuf.endswith(HAPROXY_CLI_PROMPT):
-            rbuf = rbuf[-(len(HAPROXY_CLI_PROMPT)-1):] + \
-                    self._socket.recv(HAPROXY_CLI_BUFSIZE)
+            data = self._recv()
+            rbuf = rbuf[-(len(HAPROXY_CLI_PROMPT)-1):] + data
 
     def recv(self):
         # Receive lines until HAPROXY_CLI_MAXLINES or the prompt is reached.
-        # If the prompt was not found, discard data and wait for it.
+        # If the prompt was still not found, discard data and wait for it.
         linecount = 0
         rbuf = ''
         while not rbuf.endswith(HAPROXY_CLI_PROMPT):
+
             if linecount == HAPROXY_CLI_MAXLINES:
-                rbuf = rbuf[-(len(HAPROXY_CLI_PROMPT)-1):] + \
-                        self._socket.recv(HAPROXY_CLI_BUFSIZE)
+                data = self._recv()
+                rbuf = rbuf[-(len(HAPROXY_CLI_PROMPT)-1):] + data
                 continue
-            rbuf += self._socket.recv(HAPROXY_CLI_BUFSIZE)
+
+            data = self._recv()
+            rbuf += data
+
             while linecount < HAPROXY_CLI_MAXLINES and '\n' in rbuf:
                 line, rbuf = rbuf.split('\n', 1)
                 linecount += 1
@@ -774,6 +794,9 @@ class Screen:
         self._cmid = mid # current mode id
         self._mode = self.modes[mid]
 
+        # Display state
+        self.active = False
+
         # Assume a dumb TTY, setup() will detect smart features.
         self.dumbtty = True
 
@@ -859,6 +882,9 @@ class Screen:
             self.dumbtty = False
             signal.signal(signal.SIGWINCH, self._sigwinchhandler)
 
+        # If we came this far the display is active
+        self.active = True
+
     def resize(self):
         if not self.dumbtty:
             self.clear()
@@ -890,6 +916,8 @@ class Screen:
         self.resize_toggle = False
 
     def reset(self):
+        if not self.active:
+            return
         curses_reset(self.screen)
 
     def recover(self):
@@ -1904,13 +1932,10 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
 
-    from socket import error as SocketError
-    from _curses import error as CursesError
-
     try:
         try:
-            screen.setup()
             socket.connect()
+            screen.setup()
 
             try:
                 data.add_filters(stat_filter=opts.stat_filter,
