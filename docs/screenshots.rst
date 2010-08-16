@@ -30,6 +30,10 @@ Screenshot:
 1: The default mode with health, session and queue statistics
 =============================================================
 
+Screenshot:
+
+.. image:: images/1-status.png
+
 Header reference::
 
   NAME        name of the proxy and his services
@@ -46,13 +50,13 @@ Header reference::
   SLIM        sessions limit
   STOT        total sessions
 
-Screenshot:
-
-.. image:: images/1-status.png
-
 
 2: Connection and request rates as well as traffic stats
 ========================================================
+
+Screenshot:
+
+.. image:: images/2-traffic.png
 
 Header reference::
 
@@ -67,13 +71,13 @@ Header reference::
   BIN         bytes in (IEEE 1541-2002)
   BOUT        bytes out (IEEE 1541-2002)
 
-Screenshot:
-
-.. image:: images/2-traffic.png
-
 
 3: Various statistical information related to HTTP
 ==================================================
+
+Screenshot:
+
+.. image:: images/3-http.png
 
 Header reference::
 
@@ -91,13 +95,13 @@ Header reference::
   5xx         number of HTTP responses with 5xx code
   ?xx         number of HTTP responses with other codes (protocol error)
 
-Screenshot:
-
-.. image:: images/3-http.png
-
 
 4: Health info, various error counters and downtimes
 ====================================================
+
+Screenshot:
+
+.. image:: images/4-errors.png
 
 Header reference::
 
@@ -115,10 +119,6 @@ Header reference::
   DREQ        denied requests
   DRSP        denied responses
   DOWN        total downtime
-
-Screenshot:
-
-.. image:: images/4-errors.png
 
 
 5: The embedded command line client
