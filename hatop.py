@@ -176,7 +176,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.7.0'
+__version__   = '0.7.1'
 
 import fcntl
 import os
@@ -210,7 +210,7 @@ CLI_MAXLINES = 1000
 CLI_MAXHIST = 100
 CLI_INPUT_LIMIT = 200
 CLI_INPUT_RE = re.compile('[a-zA-Z0-9_:\.\-\+; /#%]')
-CLI_INPUT_DENY_CMD = ['prompt', 'quit']
+CLI_INPUT_DENY_CMD = ['prompt', 'set timeout cli', 'quit']
 
 # Note: Only the last 3 lines are visible instantly on 80x25
 CLI_HELP_TEXT = '''\
@@ -724,7 +724,7 @@ class ScreenCLI:
 
         for pattern in CLI_INPUT_DENY_CMD:
             for cmd in cmds:
-                if re.match(r'^\s*%s\s*$' % pattern, cmd):
+                if re.match(r'^\s*%s(?:\s|$)' % pattern, cmd):
                     self.obuf.append('* command not allowed: %s' % cmd)
                     self.update_screenlines()
                     self.draw_output()
