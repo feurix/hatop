@@ -176,7 +176,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.7.3'
+__version__   = '0.7.4'
 
 import fcntl
 import os
@@ -315,7 +315,7 @@ HAPROXY_STAT_CSV = [
 (int,   'sid'),             # service id (unique inside a proxy)
 (int,   'throttle'),        # warm up status
 (int,   'lbtot'),           # total number of times a server was selected
-(int,   'tracked'),         # id of proxy/server if tracking is enabled
+(str,   'tracked'),         # id of proxy/server if tracking is enabled
 (int,   'type'),            # (0=frontend, 1=backend, 2=server, 3=socket)
 (int,   'rate'),            # number of sessions per second
                             # over the last elapsed second
