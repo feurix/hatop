@@ -5,5 +5,7 @@
 Bugs and suggestions
 ********************
 
-For now, please contact me directly at john@feurix.com. Thanks! :-)
+For now, please contact us directly at bugs@feurix.org. Thanks! :-)
+
+*Please note your exact HAProxy and Python version in the bug report!*
 
