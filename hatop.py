@@ -176,7 +176,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.7.2'
+__version__   = '0.7.3'
 
 import fcntl
 import os
@@ -362,6 +362,44 @@ PREFIX_TIME = {
 #                           CLASS DEFINITIONS                               #
 # ------------------------------------------------------------------------- #
 
+# Use bounded length deque if available (Python 2.6+)
+try:
+    deque(maxlen=0)
+
+    class RingBuffer(deque):
+
+        def __init__(self, maxlen):
+            assert maxlen > 0
+            deque.__init__(self, maxlen=maxlen)
+
+except TypeError:
+
+    class RingBuffer(deque):
+
+        def __init__(self, maxlen):
+            assert maxlen > 0
+            deque.__init__(self)
+            self.maxlen = maxlen
+
+        def append(self, item):
+            if len(self) == self.maxlen:
+                self.popleft()
+            deque.append(self, item)
+
+        def appendleft(self, item):
+            if len(self) == self.maxlen:
+                self.popright()
+            deque.appendleft(self, item)
+
+        def extend(self, iterable):
+            for item in iterable:
+                self.append(item)
+
+        def extendleft(self, iterable):
+            for item in iterable:
+                self.appendleft(item)
+
+
 class Socket:
 
     def __init__(self, path, readonly=False):
@@ -497,13 +535,13 @@ class ScreenCLI:
         self.screen = screen
 
         # Output
-        self.obuf = deque(maxlen=CLI_MAXLINES)
+        self.obuf = RingBuffer(CLI_MAXLINES)
         self.ypos = 0
         self.wrapper = TextWrapper()
         self.screenlines = []
 
         # Input
-        self.ihist = deque(maxlen=CLI_MAXHIST)
+        self.ihist = RingBuffer(CLI_MAXHIST)
         self.ibuf = []
         self.ibpos = 0
         self.ibmin = 0
