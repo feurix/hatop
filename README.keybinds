@@ -8,13 +8,17 @@ Global keybinds
 
   Key             Action
 
-  Hh?             Display help screen
-  TAB             Cycle through all modes
-  ESC-ESC         Jump to previous mode
-  ALT-n / ESC-n   Switch to mode n, where n is the numeric mode id
+  Hh?             Display this help screen
   CTRL-C / Qq     Quit
 
-  You can scroll the stat views using UP / DOWN / PGUP / DOWN / HOME / END.
+  TAB             Cycle mode forwards
+  SHIFT-TAB       Cycle mode backwards
+  ALT-n / ESC-n   Switch to mode n, where n is the numeric mode id
+  ESC-ESC         Jump to previous mode
+
+  SPACE           Copy and paste selected service identifier to the CLI
+
+  You can scroll the stat views using UP / DOWN / PGUP / PGDOWN / HOME / END.
 
 
 Hotkeys for common administrative actions
