@@ -1,4 +1,4 @@
 .. _keybinds:
 
-.. include:: ../README.keybinds
+.. include:: ../KEYBINDS
 
