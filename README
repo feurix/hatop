@@ -31,8 +31,17 @@ output stats owned solely by that process.  The current haproxy-internal
 process id is displayed top right.*
 
 
+Installation
+============
+
+See ``INSTALL`` or refer to :ref:`install`
+
+
 Command line options
---------------------
+====================
+
+Invoking hatop without options or with ``-h / --help`` results in:
+
 ::
 
   $ hatop --help
@@ -63,7 +72,10 @@ Command line options
 
 
 Display mode reference
-----------------------
+======================
+
+See also: :ref:`screenshots`
+
 ::
 
   ID  Mode    Description
@@ -75,7 +87,10 @@ Display mode reference
   5   CLI     Display embedded command line client for the unix socket
 
 Keybind reference
------------------
+=================
+
+See also: :ref:`keybinds`
+
 ::
 
   Key             Action
@@ -133,6 +148,9 @@ A brief keybind reference is logged there directly after startup...
 
 Header reference
 ================
+
+See also: :ref:`screenshots`
+
 ::
 
   Node        configured name of the haproxy node

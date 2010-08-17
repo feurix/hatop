@@ -6,6 +6,7 @@
 
    index.rst
    readme.rst
+   install.rst
    screenshots.rst
    keybinds.rst
    license.rst
