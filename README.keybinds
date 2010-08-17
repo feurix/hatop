@@ -37,8 +37,6 @@ Hotkeys for common administrative actions
   F9          Enable server (return from maintenance mode)
   F10         Disable server (put into maintenance mode)
 
-  You can scroll the output on the CLI view using PGUP / PGDOWN.
-
 Hotkey actions and server responses are logged on the CLI viewport.
 
 
