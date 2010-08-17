@@ -1119,7 +1119,6 @@ class Screen:
         self.addstr(ypos, self.xmax - len(s) - 1, s, attr_inactive)
 
     def draw_stat(self):
-        attr_cursor = curses.A_REVERSE
         for idx, line in self.screenlines:
             if idx == self.cpos:
                 attr = line.attr | curses.A_REVERSE
