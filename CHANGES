@@ -1,0 +1,29 @@
+This is a brief overview of the changes introduced by each version.
+For the full changelog refer to the Git version history.
+
+
+HATop version 0.7.4                                             16 Aug 2010
+
+    - Bugfix: Fix expected datatype of a field in the stat CSV.
+
+
+HATop version 0.7.3                                             16 Aug 2010
+
+    - Bugfix: Restore compatibility with Python 2.4 and 2.5.
+
+
+HATop version 0.7.2                                             16 Aug 2010
+
+    - Bugfix: Handle socket connections to incompatible HAProxy versions.
+
+
+HATop version 0.7.1                                             16 Aug 2010
+
+    - Bugfix: Prevent timeout changes to the internal interactive session
+      used to query for stats.
+
+
+HATop version 0.7.0                                             15 Aug 2010
+
+    - The first public and feature complete version.
+
