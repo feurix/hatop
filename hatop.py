@@ -1132,7 +1132,7 @@ class Screen:
 
     def draw_mode(self):
         if self.mid == 0:
-            self.help.draw_text(__doc__)
+            self.help.draw()
         elif self.mid != 5:
             self.draw_stat()
 
@@ -1160,8 +1160,8 @@ class ScreenHelp:
                 self.screen.smin, self.xmin,
                 self.screen.smax, self.xmax - 2)
 
-    def draw_text(self, text):
-        self.addstr(0, 0, text)
+    def draw(self):
+        self.addstr(0, 0, __doc__)
 
 
 class ScreenMode:
