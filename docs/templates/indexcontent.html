@@ -37,6 +37,15 @@ and has no external dependencies.<br />
 It requires Python 2.4 or later and HAProxy 1.4 or later.
 </p>
 
+<p>
+  <strong>
+  <a class="download" href="http://hatop.googlecode.com/files/hatop-{{ version }}.tar.gz">
+    <img src="{{ pathto('_static/disk.png', 1) }}" alt="Download" />
+    Download HATop v{{ version }} [hatop-{{ version }}.tar.gz]
+  </a>
+  </strong>
+</p>
+
 <hr />
 
 {% block tables %}
@@ -72,7 +81,8 @@ It requires Python 2.4 or later and HAProxy 1.4 or later.
 </table>
 {% endblock %}
 
-<h2>Quickstart:<a class="headerlink" href="#quickstart" title="Permalink to this headline">¶</a></h2>
+<h2>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this headline">¶</a></h2>
+
 <p class="description">
 First of all, make sure you have the stats socket enabled in the haproxy config:
 </p>
@@ -81,20 +91,36 @@ First of all, make sure you have the stats socket enabled in the haproxy config:
   stats socket /var/run/haproxy/haproxy.sock mode 0600 level admin
 </pre>
 </div>
+
 <p class="description">
 That's all you need to use HATop:
 </p>
 <div class="highlight">
 <pre>
-$ git clone git://labs.feurix.org/feurix/admin/hatop.git
-$ cd hatop
-$ ./hatop -s /var/run/haproxy/haproxy.sock
+$ hatop -s /var/run/haproxy/haproxy.sock
 </pre>
 </div>
 
 <p>
   See also:
   <a class="reference internal" href="{{ pathto("install") }}"><em>HATop Installation</em></a>
+</p>
+
+<h2>Development<a class="headerlink" href="#development" title="Permalink to this headline">¶</a></h2>
+
+<p class="description">
+Getting the HATop source code using Git:
+</p>
+<div class="highlight">
+<pre>
+$ git clone git://labs.feurix.org/feurix/admin/hatop.git
+</pre>
+</div>
+
+<p>
+  See also:
+  <a href="https://labs.feurix.org/admin/hatop/" target="_blank"><em>Git Webinterface</em></a>,
+  <a href="https://labs.feurix.org/admin/hatop/tree/" target="_blank"><em>Source Browser</em></a>
 </p>
 
 {% endblock %}

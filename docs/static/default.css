@@ -238,3 +238,26 @@ tt {
     padding: 0 1px 0 1px;
     font-size: 0.95em;
 }
+
+/* -- custom ----------------------------------------------------------- */
+
+a.download {
+    display: table;
+    background: #F0F0F0;
+    padding: 5px;
+    margin-top: 10px;
+    text-decoration: none;
+}
+a.download:link {
+    color: #355f7c;
+    text-decoration: none;
+}
+a.download:visited {
+    color: #355f7c;
+    text-decoration: none;
+}
+a.download:hover {
+    color: #000000;
+    text-decoration: none;
+}
+
