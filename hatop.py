@@ -773,7 +773,8 @@ class ScreenCLI:
 
         # Nothing to do... print marker line instead.
         if self.iblen == 0:
-            self.obuf.append('- %s %s\n' % (time.ctime(), '-' * 50))
+            self.obuf.append('- %s %s' % (time.ctime(), '-' * 50))
+            self.obuf.append('')
             self.update_screenlines()
             self.draw_output()
             self.refresh_output(sync=True)
