@@ -595,12 +595,18 @@ class ScreenCLI:
         self.update_screenlines()
 
     def start(self):
-        curses.curs_set(1)
+        try:
+            curses.curs_set(1)
+        except CursesError:
+            pass
         self.draw_output()
         self.draw_input()
 
     def stop(self):
-        curses.curs_set(0)
+        try:
+            curses.curs_set(0)
+        except CursesError:
+            pass
 
     def update_screenlines(self):
         self.wrapper.width = self.screen.xmax
@@ -1608,8 +1614,13 @@ def curses_init():
     screen = curses.initscr()
     curses.noecho()
     curses.nonl()
-    curses.curs_set(0)
     curses.raw()
+
+    # Some terminals don't support different cursor visibilities
+    try:
+        curses.curs_set(0)
+    except CursesError:
+        pass
 
     try:
         curses.start_color()
