@@ -1622,10 +1622,11 @@ def curses_init():
     except CursesError:
         pass
 
+    # Some terminals don't support the default color palette
     try:
         curses.start_color()
         curses.use_default_colors()
-    except:
+    except CursesError:
         pass
 
     return screen
