@@ -532,6 +532,9 @@ class SocketData:
             self.stat, self.pxcount, self.svcount = \
                     parse_stat(self.socket.recv())
 
+        if self.pxcount == 0:
+            raise RuntimeError('no proxy service stats available')
+
 
 class ScreenCLI:
 
