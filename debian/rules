@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+install:
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	cp hatop.py $(CURDIR)/debian/hatop/usr/bin/hatop
+	chmod 0755 $(CURDIR)/debian/hatop/usr/bin/hatop
+
