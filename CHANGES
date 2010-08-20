@@ -1,39 +1,69 @@
+*********
+Changelog
+*********
+
 This is a brief overview of the changes introduced by each version.
-For the full changelog refer to the Git version history.
+
+For the full changelog refer to the
+`Git version history <https://labs.feurix.org/admin/hatop/log/>`_.
 
 
-HATop version 0.7.5                                             18 Aug 2010
+HATop 0.7
+=========
 
-    - Bugfix: Pressing ENTER on the embedded CLI could result in display
-      corruption.
-
-    - Docs: Add common packaging files CHANGES and INSTALL
-
-    - Docs: Add keybind reference in KEYBINDS
+This is the first public series after reaching a feature complete state.
 
 
-HATop version 0.7.4                                             16 Aug 2010
+HATop 0.7.5
+-----------
 
-    - Bugfix: Fix expected datatype of a field in the stat CSV.
+:Date: Aug 18, 2010
 
+- Bugfix: Pressing ENTER on the embedded CLI could result in display
+  corruption.
 
-HATop version 0.7.3                                             16 Aug 2010
+- Docs: Add common packaging files CHANGES and INSTALL
 
-    - Bugfix: Restore compatibility with Python 2.4 and 2.5.
-
-
-HATop version 0.7.2                                             16 Aug 2010
-
-    - Bugfix: Handle socket connections to incompatible HAProxy versions.
+- Docs: Add keybind reference in KEYBINDS
 
 
-HATop version 0.7.1                                             16 Aug 2010
+HATop 0.7.4
+-----------
 
-    - Bugfix: Prevent timeout changes to the internal interactive session
-      used to query for stats.
+:Date: Aug 16, 2010
+
+- Bugfix: Fix the expected stat CSV format.
 
 
-HATop version 0.7.0                                             15 Aug 2010
+HATop 0.7.3
+-----------
 
-    - The first public and feature complete version.
+:Date: Aug 16, 2010
+
+- Bugfix: Restore compatibility with Python 2.4 and 2.5.
+
+
+HATop 0.7.2
+-----------
+
+:Date: Aug 16, 2010
+
+- Bugfix: Handle socket connections to incompatible HAProxy versions.
+
+
+HATop 0.7.1
+-----------
+
+:Date: Aug 16, 2010
+
+- Bugfix: Prevent timeout changes to the internal interactive session used to
+  query for stats.
+
+
+HATop 0.7.0
+-----------
+
+:Date: Aug 15, 2010
+
+- The first public and feature complete version.
 
