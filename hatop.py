@@ -1039,12 +1039,11 @@ class Screen:
         self.sb_pipe.update_cur(int(self.data.info['curpipes'], 10))
 
     def update_lines(self):
-        if 0 < self.mid < 5:
-            self.lines = get_screenlines(self.data.stat)
-            if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
-                for line in HAPROXY_STAT_LIMIT_WARNING.splitlines():
-                    self.lines.append(ScreenLine(text=line))
-                self.lines.append(ScreenLine())
+        self.lines = get_screenlines(self.data.stat)
+        if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
+            for line in HAPROXY_STAT_LIMIT_WARNING.splitlines():
+                self.lines.append(ScreenLine(text=line))
+            self.lines.append(ScreenLine())
 
     def draw_line(self, ypos, xpos=0, text=None,
             attr=curses.A_REVERSE):
@@ -1650,31 +1649,37 @@ def mainloop(screen, interval):
     iterations = interval / scan
 
     i = 0
-    update = True       # Toggle data update (query socket, parse, ...)
-    refresh = True      # Toggle resize and repaint of the whole screen
-    switch = False      # Toggle mode / viewport switch
+    update_stat = True      # Toggle stat update (query socket, parse csv)
+    update_lines = True     # Toggle screen line update (sync with stat data)
+    update_display = True   # Toggle screen update (resize, repaint, refresh)
+    switch_mode = False     # Toggle mode / viewport switch
 
     while True:
 
         # Resize toggled by SIGWINCH?
         if screen.resized:
             screen.resize()
-            refresh = True
+            update_display = True
 
         # Update interval reached...
         if i == iterations:
+            update_stat = True
+            if 0 < screen.mid < 5:
+                update_lines = True
+            update_display = True
             i = 0
-            update = True
-            refresh = True
 
         # Refresh screen?
-        if refresh:
+        if update_display:
 
-            if update:
+            if update_stat:
                 screen.update_data()
                 screen.update_bars()
+                update_stat = False
+
+            if update_lines:
                 screen.update_lines()
-                update = False
+                update_lines = False
 
             screen.erase()
             screen.draw_head()
@@ -1684,7 +1689,7 @@ def mainloop(screen, interval):
             screen.draw_foot()
             screen.refresh()
 
-            refresh = False
+            update_display = False
 
         c = screen.getch()
 
@@ -1701,34 +1706,31 @@ def mainloop(screen, interval):
             c = screen.getch()
             if c < 0 or c == curses.ascii.ESC:
                 screen.toggle_mode()
-                update = False
-                refresh = True
+                update_display = True
                 continue
             if 0 < c < 256:
                 c = chr(c)
                 if c in 'qQHh?12345':
-                    switch = True
+                    switch_mode = True
 
         # Mode cycle (TAB / BTAB)
         elif c == ord('\t'):
             screen.cycle_mode(1)
-            update = False
-            refresh = True
+            update_display = True
             continue
         elif c == curses.KEY_BTAB:
             screen.cycle_mode(-1)
-            update = False
-            refresh = True
+            update_display = True
             continue
 
         # Mode switch in non-CLI modes using the number only
         elif 0 <= screen.mid < 5 and 0 < c < 256:
             c = chr(c)
             if c in 'qQHh?12345':
-                switch = True
+                switch_mode = True
 
-        if switch:
-            switch = False
+        if switch_mode:
+            switch_mode = False
             if c in 'qQ':
                     raise StopIteration()
             if c != str(screen.mid) or (c in 'Hh?' and screen.mid != 0):
@@ -1738,8 +1740,7 @@ def mainloop(screen, interval):
                     screen.switch_mode(int(c))
 
                 # Force screen update with existing data
-                update = False
-                refresh = True
+                update_display = True
                 continue
 
         # -> HELP
@@ -1818,8 +1819,7 @@ def mainloop(screen, interval):
                 if c == ' ' and iid > 0 and sid > 0:
                     if screen.cli.puts('#%d/#%d' % (iid, sid)):
                         screen.switch_mode(5)
-                        update = False
-                        refresh = True
+                        update_display = True
                         continue
                 elif c == curses.KEY_F4:
                     if iid > 0 and sid > 0:
@@ -1868,8 +1868,7 @@ def mainloop(screen, interval):
                 # Refresh the screen indicating pending changes...
                 if notify:
                     screen.cstat['svname'] = 'updating...'
-                    update = False
-                    refresh = True
+                    update_display = True
                     continue
 
         # -> CLI
@@ -1922,8 +1921,7 @@ def mainloop(screen, interval):
             curses.ascii.SOH, curses.KEY_HOME,
             curses.ascii.ENQ, curses.KEY_END,
         ]:
-            update = False
-            refresh = True
+            update_display = True
 
         time.sleep(scan)
         i += 1
