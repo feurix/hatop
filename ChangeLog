@@ -1,0 +1,11 @@
+# ChangeLog for app-admin/hatop
+# Copyright 1999-2010 Gentoo Foundation; Distributed under the GPL v2
+# $Header: $
+
+*hatop-0.7.5 (18 Aug 2010)
+
+  18 Aug 2010; John Feuerstein <john@feurix.com> +hatop-0.7.5.ebuild,
+  +metadata.xml:
+  New package: HATop is an interactive ncurses client and real-time monitoring,
+  statistics displaying tool for the HAProxy TCP/HTTP load balancer.
+

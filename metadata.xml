@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "http://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<herd>python</herd>
+	<maintainer>
+		<name>John Feuerstein</name>
+		<email>john@feurix.com</email>
+	</maintainer>
+	<longdescription lang="en">
+		HATop is an interactive ncurses client and real-time monitoring,
+		statistics displaying tool for the HAProxy TCP/HTTP load balancer.
+
+		HATop's appearance is similar to top(1). It supports various modes for
+		detailed statistics of all configured proxies and services in near
+		realtime. In addition, it features an interactive CLI for the haproxy
+		unix socket. This allows administrators to control the given haproxy
+		instance (change server weight, put servers into maintenance mode, ...)
+		directly out of hatop (using keybinds or the CLI) and monitor the
+		results immediately.
+	</longdescription>
+</pkgmetadata>
+
