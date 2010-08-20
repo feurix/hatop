@@ -1990,6 +1990,9 @@ if __name__ == '__main__':
     if not 1 <= opts.mode <= 5:
         log('invalid mode: %d' % opts.mode)
         sys.exit(1)
+    if len(opts.stat_filter) + len(opts.proxy_filter) > 50:
+        log('filter limit exceeded (50)')
+        sys.exit(1)
     if opts.ro and opts.mode == 5:
         log('cli not available in read-only mode')
         sys.exit(1)
