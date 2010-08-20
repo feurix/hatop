@@ -1516,6 +1516,11 @@ def parse_info(iterable):
             if match:
                 info[key] = match.group('value')
                 break
+
+    for key in HAPROXY_INFO_RE.iterkeys():
+        if not key in info:
+            raise RuntimeError('missing "%s" in info data' % key)
+
     return info
 
 def get_idx(field):
