@@ -1,6 +1,11 @@
 # Copyright (C) 2010 John Feuerstein <john@feurix.com>
 # HATop hacking...
 
+Development:    https://labs.feurix.org/admin/hatop/
+
+Git:            git clone git://labs.feurix.org/feurix/admin/hatop.git
+
+
 
 *** Screen coordinates:
 
@@ -53,7 +58,6 @@ Dynamic positions:
 
 - stat lines represent the whole set of parsed service stats
 - screen lines represent a subset of stat lines which are on screen
-
 
 
 
