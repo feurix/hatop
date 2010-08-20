@@ -485,8 +485,11 @@ class SocketData:
         self.stat = {}
         self._filters = set()
 
-    def add_filters(self, stat_filter=[], proxy_filter=[]):
-        for filter in stat_filter:
+    def register_stat_filter(self, stat_filter):
+
+        # Validate and register filters
+        stat_filter_set = set(stat_filter)
+        for filter in stat_filter_set:
             match = HAPROXY_STAT_FILTER_RE.match(filter)
             if not match:
                 raise ValueError('invalid stat filter: %s' % filter)
@@ -495,21 +498,37 @@ class SocketData:
                     int(match.group('type'), 10),
                     int(match.group('sid'), 10),
             ))
-        if proxy_filter:
-            # Convert proxy filters into more efficient stat filters
-            for filter in proxy_filter:
-                if not HAPROXY_STAT_PROXY_FILTER_RE.match(filter):
-                    raise ValueError('invalid proxy filter: %s' % filter)
-            filter = {get_idx('pxname'): proxy_filter}
-            self.socket.send('show stat')
-            stat, pxcount, svcount = \
-                    parse_stat(self.socket.recv(), filter=filter)
-            for iid in stat.iterkeys():
-                self._filters.add((iid, -1, -1))
 
-    def del_filters(self, filters):
-        for filter in filters:
-            self._filters.remove(filter)
+    def register_proxy_filter(self, proxy_filter):
+
+        # Validate filters
+        proxy_filter_set = set(proxy_filter)
+        for filter in proxy_filter_set:
+            if not HAPROXY_STAT_PROXY_FILTER_RE.match(filter):
+                raise ValueError('invalid proxy filter: %s' % filter)
+
+        # Convert proxy filters into more efficient stat filters
+        self.socket.send('show stat')
+        pxstat, pxcount, svcount = parse_stat(self.socket.recv())
+
+        proxy_iid_map = {} # {pxname: iid, ...}
+
+        for pxname in proxy_filter_set:
+            for iid in pxstat:
+                for sid in pxstat[iid]:
+                    if pxstat[iid][sid]['pxname'] == pxname:
+                        proxy_iid_map[pxname] = iid
+                    break
+                if pxname in proxy_iid_map:
+                    break
+
+        for pxname in proxy_filter_set:
+            if not pxname in proxy_iid_map:
+                raise RuntimeError('proxy not found: %s' % pxname)
+
+        # Register filters
+        for iid in proxy_iid_map.itervalues():
+            self._filters.add((iid, -1, -1))
 
     def update_info(self):
         self.socket.send('show info')
@@ -524,6 +543,10 @@ class SocketData:
             for filter in self._filters:
                 self.socket.send('show stat %d %d %d' % filter)
                 stat, pxcount, svcount = parse_stat(self.socket.recv())
+
+                if pxcount == 0:
+                    raise RuntimeError('stale stat filter: %d %d %d' % filter)
+
                 self.pxcount += pxcount
                 self.svcount += svcount
                 self.stat.update(stat)
@@ -1427,7 +1450,7 @@ SCREEN_MODES[5].columns = [
 def log(msg):
     sys.stderr.write('%s\n' % msg)
 
-def parse_stat(iterable, filter={}):
+def parse_stat(iterable):
     pxcount = svcount = 0
     pxstat = {} # {iid: {sid: svstat, ...}, ...}
 
@@ -1443,14 +1466,6 @@ def parse_stat(iterable, filter={}):
             continue # unknown format
 
         csv = line.split(HAPROXY_STAT_SEP)
-
-        # Apply filter
-        try:
-            for idx, valid_values in filter.iteritems():
-                if csv[idx] not in valid_values:
-                    raise StopIteration()
-        except StopIteration:
-            continue
 
         # Skip further parsing?
         if svcount > HAPROXY_STAT_MAX_SERVICES:
@@ -1997,11 +2012,9 @@ if __name__ == '__main__':
             socket.connect()
             screen.setup()
 
-            try:
-                data.add_filters(stat_filter=opts.stat_filter,
-                    proxy_filter=opts.proxy_filter)
-            except ValueError, e:
-                raise RuntimeError(e)
+            # Register filters
+            data.register_stat_filter(opts.stat_filter)
+            data.register_proxy_filter(opts.proxy_filter)
 
             while True:
                 try:
@@ -2016,6 +2029,10 @@ if __name__ == '__main__':
                     time.sleep(1)
                     screen.recover()
 
+        except ValueError, e:
+            screen.reset()
+            log('value error: %s' % e)
+            sys.exit(1)
         except RuntimeError, e:
             screen.reset()
             log('runtime error: %s' % e)
