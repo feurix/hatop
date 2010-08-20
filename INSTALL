@@ -27,7 +27,7 @@ Installation
 
 The installation is simple::
 
-  $ install -m 755  bin/hatop  /usr/bin/hatop
+  $ install -m 755  bin/hatop  /usr/local/bin/hatop
 
 
 Permissions
