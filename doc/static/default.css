@@ -261,3 +261,23 @@ a.download:hover {
     text-decoration: none;
 }
 
+table.docutils {
+    border:0 solid #DDCCEE;
+    border-collapse:collapse;
+}
+table.docutils td, table.docutils th {
+    background-color:#EEEEFF;
+    border-left:0 none;
+    padding:2px 5px;
+}
+table.field-list td, table.field-list th {
+    border:0 none !important;
+}
+table.footnote td, table.footnote th {
+    border:0 none !important;
+}
+table.docutils th {
+    background-color:#EEDDEE;
+    border-top:1px solid #CCAACC;
+}
+
