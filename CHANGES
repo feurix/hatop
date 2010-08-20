@@ -20,7 +20,7 @@ HATop 0.7.5
 :Date: Aug 18, 2010
 
 - Bugfix: Pressing ENTER on the embedded CLI could result in display
-  corruption.
+  corruption. (Cyril Bonté)
 
 - Docs: Add common packaging files CHANGES and INSTALL
 
@@ -32,7 +32,7 @@ HATop 0.7.4
 
 :Date: Aug 16, 2010
 
-- Bugfix: Fix the expected stat CSV format.
+- Bugfix: Fix the expected stat CSV format. (Jim Riggs)
 
 
 HATop 0.7.3
