@@ -266,7 +266,6 @@ HAPROXY_INFO_RE = {
 'tasks':            re.compile('^Tasks:\s*(?P<value>\d+)'),
 'runqueue':         re.compile('^Run_queue:\s*(?P<value>\d+)'),
 'node':             re.compile('^node:\s*(?P<value>\S+)'),
-'description':      re.compile('^description:\s*(?P<value>\S+)'),
 }
 
 HAPROXY_STAT_MAX_SERVICES = 100
