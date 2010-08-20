@@ -14,6 +14,21 @@ HATop 0.7
 This is the first public series after reaching a feature complete state.
 
 
+HATop 0.7.6
+-----------
+
+:Date: Aug 20, 2010
+
+- Bugfix: Support terminals lacking different cursor visibilities.
+  (Matt Behrens)
+
+- Bugfix: Handle empty or incomplete info and stat data.
+
+- Bugfix: Handle unknown proxy names with the -p / --proxy filter options.
+
+- Docs: Add initial hatop(1) man page
+
+
 HATop 0.7.5
 -----------
 
