@@ -3,13 +3,16 @@
 # HATop documentation build configuration file.
 
 import sys
-import os
 import time
 
 project = u'HATop'
 copyright = u'2009-%s, John Feuerstein' % time.strftime('%Y')
 
-sys.path.append(os.path.abspath('..'))
+# Import hack to get the current script version from the executable
+from imp import load_source
+sys.dont_write_bytecode = True
+load_source('hatop', '../bin/hatop')
+
 from hatop import __version__ as version, __version__ as release
 
 # -- General configuration -----------------------------------------------------
