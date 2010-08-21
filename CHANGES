@@ -1,39 +1,85 @@
+*********
+Changelog
+*********
+
 This is a brief overview of the changes introduced by each version.
-For the full changelog refer to the Git version history.
+
+For the full changelog refer to the
+`Git version history <https://labs.feurix.org/admin/hatop/log/>`_.
 
 
-HATop version 0.7.5                                             18 Aug 2010
+HATop 0.7
+=========
 
-    - Bugfix: Pressing ENTER on the embedded CLI could result in display
-      corruption.
-
-    - Docs: Add common packaging files CHANGES and INSTALL
-
-    - Docs: Add keybind reference in KEYBINDS
+This is the first public series after reaching a feature complete state.
 
 
-HATop version 0.7.4                                             16 Aug 2010
+HATop 0.7.6
+-----------
 
-    - Bugfix: Fix expected datatype of a field in the stat CSV.
+:Date: Aug 20, 2010
 
+- Bugfix: Support terminals lacking different cursor visibilities.
+  (Matt Behrens)
 
-HATop version 0.7.3                                             16 Aug 2010
+- Bugfix: Handle empty or incomplete info and stat data.
 
-    - Bugfix: Restore compatibility with Python 2.4 and 2.5.
+- Bugfix: Handle unknown proxy names with the -p / --proxy filter options.
 
-
-HATop version 0.7.2                                             16 Aug 2010
-
-    - Bugfix: Handle socket connections to incompatible HAProxy versions.
-
-
-HATop version 0.7.1                                             16 Aug 2010
-
-    - Bugfix: Prevent timeout changes to the internal interactive session
-      used to query for stats.
+- Docs: Add initial hatop(1) man page
 
 
-HATop version 0.7.0                                             15 Aug 2010
+HATop 0.7.5
+-----------
 
-    - The first public and feature complete version.
+:Date: Aug 18, 2010
 
+- Bugfix: Pressing ENTER on the embedded CLI could result in display
+  corruption. (Cyril Bonté)
+
+- Docs: Add common packaging files CHANGES and INSTALL
+
+- Docs: Add keybind reference in KEYBINDS
+
+
+HATop 0.7.4
+-----------
+
+:Date: Aug 16, 2010
+
+- Bugfix: Fix the expected stat CSV format. (Jim Riggs)
+
+
+HATop 0.7.3
+-----------
+
+:Date: Aug 16, 2010
+
+- Bugfix: Restore compatibility with Python 2.4 and 2.5.
+
+
+HATop 0.7.2
+-----------
+
+:Date: Aug 16, 2010
+
+- Bugfix: Handle socket connections to incompatible HAProxy versions.
+
+
+HATop 0.7.1
+-----------
+
+:Date: Aug 16, 2010
+
+- Bugfix: Prevent timeout changes to the internal interactive session used to
+  query for stats.
+
+
+HATop 0.7.0
+-----------
+
+:Date: Aug 15, 2010
+
+- The first public and feature complete version.
+
+.. vim: tw=78

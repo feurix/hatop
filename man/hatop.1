@@ -1,0 +1,103 @@
+.TH HATOP 1 "19 August 2010"
+.SH NAME
+HATop \- interactive ncurses client for haproxy
+.SH SYNOPSIS
+hatop \-s <stats socket> [options...]
+.SH DESCRIPTION
+HATop is an interactive ncurses client and real-time monitoring,
+statistics displaying tool for the HAProxy TCP/HTTP load balancer.
+
+HATop's appearance is similar to top(1). It supports various modes for
+detailed statistics of all configured proxies and services in near realtime.
+In addition, it features an interactive CLI for the haproxy unix socket.
+This allows administrators to control the given haproxy instance
+(change server weight, put servers into maintenance mode, ...) directly out
+of hatop (using keybinds or the CLI) and monitor the results immediately.
+
+HATop uses a unix domain socket to communicate with HAProxy.  This can be
+configured in the HAProxy configuration using the "stats socket" option.
+.SH OPTIONS
+.TP
+\fB\-\-version\fP
+show version number and exit
+.TP
+\fB\-h, \-\-help\fP
+show help message and exit
+.TP
+\fB\-s \fISOCKET\fB, \-\-unix\-socket=\fISOCKET\fP
+path to the haproxy stats socket
+.TP
+\fB\-i \fIINTERVAL\fB, \-\-update\-interval=\fIINTERVAL\fP
+update interval in seconds (1\-30, default: 3)
+.TP
+\fB\-m \fIMODE\fB, \-\-mode=\fIMODE\fP
+start in specific mode (1\-5, default: 1)
+.TP
+\fB\-n, \-\-read\-only\fP
+disable the cli and query for stats only
+
+.PP
+The following filter options may be given multiple times:
+.TP
+\fB\-f \fIFILTER\fB, \-\-filter=\fIFILTER\fP
+stat filter in format "<iid> <type> <sid>"
+.TP
+\fB\-p \fIPROXY\fB, --proxy=\fIPROXY\fP
+proxy filter in format "<pxname>"
+.SH KEYBINDS
+.TP
+\fBHh?\fP
+Display help screen
+.TP
+\fBQq\fP
+Quit
+.TP
+\fBTAB\fP
+Cycle mode forwards
+.TP
+\fBS\-TAB\fP
+Cycle mode backwards
+.TP
+\fBESC\-n\fP
+Switch to mode n, where n is the numeric mode id
+.TP
+\fBESC\fP
+Jump to previous mode
+.TP
+\fBSPACE\fP
+Copy and paste selected service identifier to the CLI
+.TP
+\fBUP\fP / \fBDOWN\fP / \fBPGUP\fP / \fBPGDOWN\fP / \fBHOME\fP / \fBEND\fP
+Scroll the stat views to select a given service
+.SH HOTKEYS
+.TP
+\fBF4\fP
+Restore initial server weight
+
+.TP
+\fBF5\fP
+Decrease server weight:     - 10
+.TP
+\fBF6\fP
+Decrease server weight:     -  1
+.TP
+\fBF7\fP
+Increase server weight:     +  1
+.TP
+\fBF8\fP
+Increase server weight:     + 10
+
+.TP
+\fBF9\fP
+Enable server (return from maintenance mode)
+.TP
+\fBF10\fP
+Disable server (put into maintenance mode)
+.SH SEE ALSO
+.BR haproxy (1)
+
+A much better documentation can be found online:
+.PP
+http://feurix.org/projects/hatop/
+.SH AUTHOR
+HATop and this man page was written by John Feuerstein.

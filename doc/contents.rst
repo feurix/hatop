@@ -5,6 +5,7 @@
 .. toctree::
 
    index.rst
+   changes.rst
    readme.rst
    install.rst
    screenshots.rst

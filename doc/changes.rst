@@ -1,0 +1,4 @@
+.. _changes:
+
+.. include:: ../CHANGES
+

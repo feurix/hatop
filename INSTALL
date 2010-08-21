@@ -1,11 +1,8 @@
-******************
-HATop Installation
-******************
+************
+Installation
+************
 
-HATop is written as a single python script file called ``hatop.py``.
-
-An executable shell wrapper called ``hatop`` is included for convenience
-and for distributions separating python scripts from binaries.
+HATop is written as a single executable python script file called ``hatop``.
 
 This allows easy distribution and installation.
 
@@ -30,7 +27,7 @@ Installation
 
 The installation is simple::
 
-  $ install -m 755  hatop.py  /usr/bin/hatop
+  $ install -m 755  bin/hatop  /usr/local/bin/hatop
 
 
 Permissions
