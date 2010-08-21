@@ -16,10 +16,7 @@ install:
 	dh_testdir
 	dh_testroot
 	dh_prep
-	dh_installdirs
-
-	cp hatop.py $(CURDIR)/debian/hatop/usr/bin/hatop
-	chmod 0755 $(CURDIR)/debian/hatop/usr/bin/hatop
+	dh_install
 
 binary-arch: build install
 # We have nothing to do by default.
@@ -28,6 +25,7 @@ binary-indep: build install
 	dh_testdir
 	dh_testroot
 	dh_installdocs
+	dh_installman man/*
 	dh_installchangelogs
 	dh_compress
 	dh_fixperms
