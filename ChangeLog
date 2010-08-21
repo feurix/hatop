@@ -2,6 +2,12 @@
 # Copyright 1999-2010 Gentoo Foundation; Distributed under the GPL v2
 # $Header: $
 
+*hatop-0.7.6 (21 Aug 2010)
+
+  21 Aug 2010; John Feuerstein <john@feurix.com> +hatop-0.7.6.ebuild,
+  -hatop-0.7.5.ebuild:
+  New upstream release. Remove previous unstable release.
+
 *hatop-0.7.5 (18 Aug 2010)
 
   18 Aug 2010; John Feuerstein <john@feurix.com> +hatop-0.7.5.ebuild,

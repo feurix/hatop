@@ -26,6 +26,7 @@ pkg_setup() {
 }
 
 src_install() {
-	newbin hatop.py hatop
+	dobin bin/hatop
+	doman man/hatop.1
 	dodoc CHANGES KEYBINDS LICENSE README
 }
