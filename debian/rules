@@ -2,7 +2,15 @@
 # -*- makefile -*-
 
 # Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
+
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean
+
+build:
+# We have nothing to do by default.
 
 install:
 	dh_testdir
@@ -13,3 +21,21 @@ install:
 	cp hatop.py $(CURDIR)/debian/hatop/usr/bin/hatop
 	chmod 0755 $(CURDIR)/debian/hatop/usr/bin/hatop
 
+binary-arch: build install
+# We have nothing to do by default.
+
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+	dh_installdocs
+	dh_installchangelogs
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+
+.PHONY: build clean binary-indep binary-arch binary

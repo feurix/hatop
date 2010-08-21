@@ -3,14 +3,14 @@ Section: admin
 Priority: extra
 Maintainer: John Feuerstein <john@feurix.com>
 Build-Depends: debhelper (>= 7.0.50~)
-Standards-Version: 3.8.4
+Standards-Version: 3.9.1
 Homepage: http://feurix.org/projects/hatop/
 Vcs-Git: git://labs.feurix.org/feurix/admin/hatop.git
-Vcs-Browser: https://labs.feurix.org/admin/hatop/
+Vcs-Browser: http://labs.feurix.org/admin/hatop/
 
 Package: hatop
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, python (>= 2.4)
+Depends: ${misc:Depends}, python (>= 2.4)
 Description: interactive ncurses client for haproxy
  HATop is an interactive ncurses client and real-time monitoring, statistics
  displaying tool for the HAProxy TCP/HTTP load balancer.
