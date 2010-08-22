@@ -1,0 +1,47 @@
+From: John Feuerstein <john@feurix.com>
+Date: Sun, 22 Aug 2010 15:59:54 +0200
+Subject: [PATCH] Escape minus signs in man page
+
+This prevents standard groff implementations to falsely take the minus
+sign as a hyphen, which prevents users searching the man page for "-s"
+to find the matching option.
+---
+ man/hatop.1 |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/man/hatop.1 b/man/hatop.1
+index 953c47f..395f7f5 100644
+--- a/man/hatop.1
++++ b/man/hatop.1
+@@ -4,7 +4,7 @@ HATop \- interactive ncurses client for haproxy
+ .SH SYNOPSIS
+ hatop \-s <stats socket> [options...]
+ .SH DESCRIPTION
+-HATop is an interactive ncurses client and real-time monitoring,
++HATop is an interactive ncurses client and real\-time monitoring,
+ statistics displaying tool for the HAProxy TCP/HTTP load balancer.
+ 
+ HATop's appearance is similar to top(1). It supports various modes for
+@@ -42,7 +42,7 @@ The following filter options may be given multiple times:
+ \fB\-f \fIFILTER\fB, \-\-filter=\fIFILTER\fP
+ stat filter in format "<iid> <type> <sid>"
+ .TP
+-\fB\-p \fIPROXY\fB, --proxy=\fIPROXY\fP
++\fB\-p \fIPROXY\fB, \-\-proxy=\fIPROXY\fP
+ proxy filter in format "<pxname>"
+ .SH KEYBINDS
+ .TP
+@@ -76,10 +76,10 @@ Restore initial server weight
+ 
+ .TP
+ \fBF5\fP
+-Decrease server weight:     - 10
++Decrease server weight:     \- 10
+ .TP
+ \fBF6\fP
+-Decrease server weight:     -  1
++Decrease server weight:     \-  1
+ .TP
+ \fBF7\fP
+ Increase server weight:     +  1
+-- 
