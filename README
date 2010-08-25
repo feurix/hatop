@@ -45,7 +45,7 @@ Invoking hatop without options or with ``-h / --help`` results in:
 ::
 
   $ hatop --help
-  Usage: hatop [options]
+  Usage: hatop -s SOCKET [OPTIONS]...
 
   Options:
     --version             show program's version number and exit
