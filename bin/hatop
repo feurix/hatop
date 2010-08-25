@@ -1954,7 +1954,7 @@ if __name__ == '__main__':
     from optparse import OptionParser, OptionGroup
 
     version  = 'hatop version %s' % __version__
-    usage    = 'Usage: hatop [options]'
+    usage    = 'Usage: hatop -s SOCKET [OPTIONS]...'
 
     parser = OptionParser(usage=usage, version=version)
 
