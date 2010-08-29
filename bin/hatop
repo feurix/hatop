@@ -248,7 +248,7 @@ CLI_HELP_TEXT = '''\
 SCREEN_XMIN = 78
 SCREEN_YMIN = 20
 SCREEN_XMAX = 200
-SCREEN_YMAX = 200
+SCREEN_YMAX = 100
 SCREEN_HPOS = 11
 
 HAPROXY_INFO_RE = {
@@ -884,7 +884,7 @@ class Screen:
     @property
     def resized(self):
         if self.dumbtty:
-            ymax, xmax = self.screen.getmaxyx()
+            ymax, xmax = self.getmaxyx()
             return ymax != self.ymax or xmax != self.xmax
         else:
             return self.resize_toggle
@@ -959,6 +959,12 @@ class Screen:
         # If we came this far the display is active
         self.active = True
 
+    def getmaxyx(self):
+        ymax, xmax = self.screen.getmaxyx()
+        xmax = min(xmax, SCREEN_XMAX)
+        ymax = min(ymax, SCREEN_YMAX)
+        return ymax, xmax
+
     def resize(self):
         if not self.dumbtty:
             self.clear()
@@ -966,7 +972,7 @@ class Screen:
             size = struct.unpack('4H', size)
             curses.resize_term(size[0], size[1])
 
-        ymax, xmax = self.screen.getmaxyx()
+        ymax, xmax = self.getmaxyx()
 
         if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
             raise RuntimeError(
@@ -976,9 +982,9 @@ class Screen:
             self.resize_toggle = False
             return
         if xmax != self.xmax:
-            self.xmax = min(xmax, SCREEN_XMAX)
+            self.xmax = xmax
         if ymax != self.ymax:
-            self.ymax = min(ymax, SCREEN_YMAX)
+            self.ymax = ymax
 
         self.mode.sync(self)
 
