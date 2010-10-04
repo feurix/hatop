@@ -770,7 +770,7 @@ class ScreenCLI:
             return
 
         # Move LEFT
-        elif n < 0:
+        if n < 0:
             self.ibpos = max(0, self.ibpos + n)
             if self.ibpos < self.ibmin:
                 self.ibmin = self.ibpos
@@ -790,7 +790,7 @@ class ScreenCLI:
             return
 
         # Move UP
-        elif n < 0 and self.ypos > self.ospan:
+        if n < 0 and self.ypos > self.ospan:
             self.ypos = max(self.ospan, self.ypos + n)
 
         # Move DOWN
@@ -927,11 +927,11 @@ class Screen:
 
     @property
     def vmax(self):
-        return self.vmin + self.cmax + 1
+        return min(self.vmin + self.span, len(self.lines) - 1)
 
     @property
     def screenlines(self):
-        return enumerate(self.lines[self.vmin:self.vmax])
+        return enumerate(self.lines[self.vmin:self.vmax + 1])
 
     # Proxies
     def getch(self, *args, **kwargs):
@@ -1172,6 +1172,48 @@ class Screen:
             self.help.draw()
         elif self.mid != 5:
             self.draw_stat()
+
+    def mvc(self, n):
+        if n == 0:
+            return
+
+        # Move DOWN
+        if n > 0:
+            # move cursor
+            if self.cpos < self.cmax:
+                self.cpos = min(self.cmax, self.cpos + n)
+                return
+            # move screenlines
+            maxvmin = max(0, len(self.lines) - self.span - 1)
+            if self.cpos == self.cmax and self.vmin < maxvmin:
+                self.vmin = min(maxvmin, self.vmin + n)
+
+        # Move UP
+        elif n < 0: # UP
+            # move cursor
+            if self.cpos > self.cmin:
+                self.cpos = max(self.cmin, self.cpos + n)
+                return
+            # move screenlines
+            if self.cpos == self.cmin and self.vmin > 0:
+                self.vmin = max(0, self.vmin + n)
+
+    def mvhome(self):
+        # move cursor
+        if self.cpos != self.cmin:
+            self.cpos = self.cmin
+        # move screenlines
+        if self.vmin != 0:
+            self.vmin = 0
+
+    def mvend(self):
+        # move cursor
+        if self.cpos != self.cmax:
+            self.cpos = self.cmax
+        # move screenlines
+        maxvmin = max(0, len(self.lines) - self.span - 1)
+        if self.vmin != maxvmin:
+            self.vmin = maxvmin
 
 
 class ScreenHelp:
@@ -1795,37 +1837,17 @@ def mainloop(screen, interval):
 
             # movements
             if c == curses.KEY_UP:
-                if screen.cpos > screen.cmin:
-                    screen.cpos -= 1
-                if screen.cpos == screen.cmin and screen.vmin > 0:
-                    screen.vmin -= 1
+                screen.mvc(-1)
             elif c == curses.KEY_DOWN:
-                maxvmin = len(screen.lines) - screen.cmax - 2
-                if screen.cpos < screen.cmax:
-                    screen.cpos += 1
-                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                    screen.vmin += 1
+                screen.mvc(1)
             elif c == curses.KEY_PPAGE:
-                if screen.cpos > screen.cmin:
-                    screen.cpos = max(screen.cmin, screen.cpos - 10)
-                if screen.cpos == screen.cmin and screen.vmin > 0:
-                    screen.vmin = max(0, screen.vmin - 10)
+                screen.mvc(-10)
             elif c == curses.KEY_NPAGE:
-                maxvmin = len(screen.lines) - screen.cmax - 2
-                if screen.cpos < screen.cmax:
-                    screen.cpos = min(screen.cmax, screen.cpos + 10)
-                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                    screen.vmin = min(maxvmin, screen.vmin + 10)
+                screen.mvc(10)
             elif c == curses.ascii.SOH or c == curses.KEY_HOME:
-                screen.cpos = screen.cmin
-                screen.vmin = 0
+                screen.mvhome()
             elif c == curses.ascii.ENQ or c == curses.KEY_END:
-                nlines = len(screen.lines)
-                screen.cpos = screen.cmax
-                if nlines > screen.span:
-                    screen.vmin = nlines - screen.cmax - 2
-                else:
-                    screen.vmin = screen.vmax - screen.cpos - 1
+                screen.mvend()
 
             # actions
             elif c in [
