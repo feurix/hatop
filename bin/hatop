@@ -1147,7 +1147,7 @@ class Screen:
         self.addstr(self.ymin, self.xmin,
                 time.ctime().rjust(self.xmax - 1), attr)
         self.addstr(self.ymin, self.xmin + 1,
-                'hatop version ' + __version__, attr)
+                'HATop version ' + __version__, attr)
 
     def draw_info(self):
         self.addstr(self.ymin + 2, self.xmin + 2,
@@ -1478,7 +1478,7 @@ SCREEN_MODES = [
 
 # Mode: HELP         name            header     xmin    xmax    align
 SCREEN_MODES[0].columns = [
-        ScreenColumn('help', ' hatop online help ',
+        ScreenColumn('help', ' HATop Online Help ',
                                          SCREEN_XMIN,      0,    'L'),
 ]
 
