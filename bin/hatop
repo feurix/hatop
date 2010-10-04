@@ -535,27 +535,53 @@ class SocketData:
         self.info = parse_info(iterable)
 
     def update_stat(self):
+        # Store current data
+        pxcount_old = self.pxcount
+        svcount_old = self.svcount
+        stat_old = self.stat
+
+        # Reset current data
+        self.pxcount = 0
+        self.svcount = 0
+        self.stat = {}
+
         if self._filters:
-            self.pxcount = 0
-            self.svcount = 0
-            self.stat = {}
             for filter in self._filters:
                 self.socket.send('show stat %d %d %d' % filter)
-                stat, pxcount, svcount = parse_stat(self.socket.recv())
+                filter_stat, filter_pxcount, filter_svcount = \
+                        parse_stat(self.socket.recv())
 
-                if pxcount == 0:
+                if filter_pxcount == 0:
                     raise RuntimeError('stale stat filter: %d %d %d' % filter)
 
-                self.pxcount += pxcount
-                self.svcount += svcount
-                self.stat.update(stat)
+                self.pxcount += filter_pxcount
+                self.svcount += filter_svcount
+                self.stat.update(filter_stat)
         else:
             self.socket.send('show stat')
             self.stat, self.pxcount, self.svcount = \
                     parse_stat(self.socket.recv())
 
         if self.pxcount == 0:
-            raise RuntimeError('no proxy service stats available')
+            raise RuntimeWarning('no stat data available')
+
+        # Warn if the HAProxy configuration has changed on-the-fly
+        pxdiff = 0
+        svdiff = 0
+
+        if self.pxcount < pxcount_old:
+            pxdiff -= pxcount_old - self.pxcount
+        if pxcount_old > 0 and self.pxcount > pxcount_old:
+            pxdiff += self.pxcount - pxcount_old
+        if self.svcount < svcount_old:
+            svdiff -= svcount_old - self.svcount
+        if svcount_old > 0 and self.svcount > svcount_old:
+            svdiff += self.svcount - svcount_old
+
+        if pxdiff != 0 or svdiff != 0:
+            raise RuntimeWarning(
+                    'config changed: proxy %+d, service %+d '
+                    '(reloading...)' % (pxdiff, svdiff))
 
 
 class ScreenCLI:
@@ -878,6 +904,12 @@ class Screen:
         # Note: Defaults to true to force the initial size sync.
         self.resize_toggle = True
 
+        # Display given exceptions on screen
+        self.exceptions = []
+
+        # Show cursor line?
+        self.cursor = True
+
     def _sigwinchhandler(self, signum, frame):
         self.resize_toggle = True
 
@@ -1061,7 +1093,10 @@ class Screen:
 
     def update_data(self):
         self.data.update_info()
-        self.data.update_stat()
+        try:
+            self.data.update_stat()
+        except RuntimeWarning, x:
+            self.exceptions.append(x)
 
     def update_bars(self):
         self.sb_conn.update_max(int(self.data.info['maxconn'], 10))
@@ -1070,6 +1105,23 @@ class Screen:
         self.sb_pipe.update_cur(int(self.data.info['curpipes'], 10))
 
     def update_lines(self):
+        # Display non-fatal exceptions on screen
+        if self.exceptions:
+            self.mvhome()
+            self.lines = []
+            self.cursor = False
+            for x in self.exceptions:
+                for line in str(x).splitlines():
+                    line = line.center(SCREEN_XMIN)
+                    self.lines.append(ScreenLine(text=line))
+            self.exceptions = []
+            return
+
+        # Reset cursor visibility
+        if not self.cursor:
+            self.cursor = True
+
+        # Update screen lines
         self.lines = get_screenlines(self.data.stat)
         if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
             for line in HAPROXY_STAT_LIMIT_WARNING.splitlines():
@@ -1157,7 +1209,7 @@ class Screen:
 
     def draw_stat(self):
         for idx, line in self.screenlines:
-            if idx == self.cpos:
+            if self.cursor and idx == self.cpos:
                 attr = line.attr | curses.A_REVERSE
             else:
                 attr = line.attr
