@@ -1124,9 +1124,9 @@ class Screen:
         # Update screen lines
         self.lines = get_screenlines(self.data.stat)
         if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
+            self.lines.append(ScreenLine())
             for line in HAPROXY_STAT_LIMIT_WARNING.splitlines():
                 self.lines.append(ScreenLine(text=line))
-            self.lines.append(ScreenLine())
 
     def draw_line(self, ypos, xpos=0, text=None,
             attr=curses.A_REVERSE):
@@ -1706,6 +1706,10 @@ def get_screenlines(stat):
             text='>>> %s' % pxname))
         screenlines += lines
         screenlines.append(ScreenLine())
+
+    # remove trailing empty line
+    if len(screenlines) > 1:
+        screenlines.pop()
 
     return screenlines
 
