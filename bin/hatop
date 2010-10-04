@@ -1943,16 +1943,22 @@ def mainloop(screen, interval):
                 if iid <= 0 or sid <= 0:
                     continue
 
+                pxname = screen.cstat['pxname']
+                svname = screen.cstat['svname']
+
+                if not pxname or not svname:
+                    continue
+
                 notify = False
 
                 if c == ' ':
-                    if screen.cli.puts('#%d/#%d' % (iid, sid)):
+                    if screen.cli.puts('%s/%s' % (pxname, svname)):
                         screen.switch_mode(5)
                         update_display = True
                         continue
                 elif c == curses.KEY_F4:
                     screen.cli.execute_cmdline(
-                            'set weight #%d/#%d 100%%' % (iid, sid))
+                            'set weight %s/%s 100%%' % (pxname, svname))
                     notify = True
                 elif c == curses.KEY_F5:
                     curweight = screen.cstat['weight']
@@ -1960,7 +1966,7 @@ def mainloop(screen, interval):
                         continue
                     weight = max(0, curweight - 10)             # - 10
                     screen.cli.execute_cmdline(
-                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                            'set weight %s/%s %d' % (pxname, svname, weight))
                     notify = True
                 elif c == curses.KEY_F6:
                     curweight = screen.cstat['weight']
@@ -1968,7 +1974,7 @@ def mainloop(screen, interval):
                         continue
                     weight = max(0, curweight - 1)              # - 1
                     screen.cli.execute_cmdline(
-                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                            'set weight %s/%s %d' % (pxname, svname, weight))
                     notify = True
                 elif c == curses.KEY_F7:
                     curweight = screen.cstat['weight']
@@ -1976,7 +1982,7 @@ def mainloop(screen, interval):
                         continue
                     weight = min(256, curweight + 1)            # + 1
                     screen.cli.execute_cmdline(
-                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                            'set weight %s/%s %d' % (pxname, svname, weight))
                     notify = True
                 elif c == curses.KEY_F8:
                     curweight = screen.cstat['weight']
@@ -1984,15 +1990,15 @@ def mainloop(screen, interval):
                         continue
                     weight = min(256, curweight + 10)           # + 10
                     screen.cli.execute_cmdline(
-                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                            'set weight %s/%s %d' % (pxname, svname, weight))
                     notify = True
                 elif c == curses.KEY_F9:
                     screen.cli.execute_cmdline(
-                            'enable server #%d/#%d' % (iid, sid))
+                            'enable server %s/%s' % (pxname, svname))
                     notify = True
                 elif c == curses.KEY_F10:
                     screen.cli.execute_cmdline(
-                            'disable server #%d/#%d' % (iid, sid))
+                            'disable server %s/%s' % (pxname, svname))
                     notify = True
 
                 # Refresh the screen indicating pending changes...
