@@ -1294,6 +1294,24 @@ class ScreenHelp:
     def draw(self):
         self.addstr(0, 0, __doc__)
 
+    def mvc(self, n):
+        if n == 0:
+            return
+
+        # Move DOWN
+        if n > 0:
+            self.ypos = min(self.ymax - self.screen.span, self.ypos + n)
+
+        # Move UP
+        elif n < 0:
+            self.ypos = max(self.ymin, self.ypos + n)
+
+    def mvhome(self):
+        self.ypos = self.ymin
+
+    def mvend(self):
+        self.ypos = self.ymax - self.screen.span
+
 
 class ScreenMode:
 
@@ -1872,21 +1890,19 @@ def mainloop(screen, interval):
         # -> HELP
         if screen.mid == 0:
             if c == curses.KEY_UP and screen.help.ypos > 0:
-                screen.help.ypos -= 1
+                screen.help.mvc(-1)
             elif c == curses.KEY_DOWN and \
                     screen.help.ypos < screen.help.ymax - screen.span:
-                screen.help.ypos += 1
+                screen.help.mvc(1)
             elif c == curses.KEY_PPAGE and screen.help.ypos > 0:
-                screen.help.ypos = max(screen.help.ymin,
-                        screen.help.ypos - 10)
+                screen.help.mvc(-10)
             elif c == curses.KEY_NPAGE and \
                     screen.help.ypos < screen.help.ymax - screen.span:
-                screen.help.ypos = min(screen.help.ymax - screen.span,
-                        screen.help.ypos + 10)
+                screen.help.mvc(10)
             elif c == curses.ascii.SOH or c == curses.KEY_HOME:
-                screen.help.ypos = screen.help.ymin
+                screen.help.mvhome()
             elif c == curses.ascii.ENQ or c == curses.KEY_END:
-                screen.help.ypos = screen.help.ymax - screen.span
+                screen.help.mvend()
 
         # -> STATUS / TRAFFIC / HTTP / ERRORS
         elif 1 <= screen.mid <= 4:
