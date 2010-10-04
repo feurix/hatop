@@ -914,6 +914,9 @@ class Screen:
         # Show cursor line?
         self.cursor = True
 
+        # Show hotkeys?
+        self.hotkeys = False
+
     def _sigwinchhandler(self, signum, frame):
         self.resize_toggle = True
 
@@ -1188,6 +1191,23 @@ class Screen:
         attr_active = curses.A_BOLD
         attr_inactive = curses.A_BOLD | curses.A_REVERSE
 
+        # HOTKEYS
+        if (self.hotkeys and
+                0 < self.mid < 5 and
+                self.cstat and
+                self.cstat['iid'] > 0 and
+                self.cstat['sid'] > 0):
+                self.draw_line(ypos)
+                self.addstr(ypos, 1, 'HOTKEYS:',
+                        curses.A_BOLD | curses.A_REVERSE)
+                self.addstr(ypos, 11,
+                        'F4=W-RESET  '
+                        'F5=W-10  F6=W-1  F7=W+1  F8=W+10  '
+                        'F9=ENABLE  F10=DISABLE',
+                        curses.A_NORMAL | curses.A_REVERSE)
+                return
+
+        # VIEWPORTS
         for mid, mode in enumerate(self.modes):
             if mid == 0:
                 continue
@@ -1846,6 +1866,25 @@ def mainloop(screen, interval):
             i += 1
             continue
 
+        # Toggle hotkey footer
+        if screen.hotkeys:
+            if c not in (
+                    curses.KEY_F4,          # reset weight
+                    curses.KEY_F5,          # weight -10
+                    curses.KEY_F6,          # weight -1
+                    curses.KEY_F7,          # weight +1
+                    curses.KEY_F8,          # weight +10
+                    curses.KEY_F9,          # enable server
+                    curses.KEY_F10,         # disable server
+            ):
+                screen.hotkeys = False
+                update_display = True
+            if c in (
+                    curses.KEY_ENTER,
+                    curses.ascii.CR
+            ):
+                continue
+
         if c == curses.ascii.ETX:
             raise KeyboardInterrupt()
 
@@ -1926,19 +1965,26 @@ def mainloop(screen, interval):
                 screen.mvend()
 
             # actions
-            elif c in [
-                    ' ',
-                    curses.KEY_F4,
-                    curses.KEY_F5,
-                    curses.KEY_F6,
-                    curses.KEY_F7,
-                    curses.KEY_F8,
-                    curses.KEY_F9,
-                    curses.KEY_F10,
-            ]:
+            elif c in (
+                    curses.KEY_ENTER,       # show hotkeys
+                    chr(curses.ascii.CR),   # show hotkeys
+                    chr(curses.ascii.SP),   # copy & paste identifier
+                    curses.KEY_F4,          # reset weight
+                    curses.KEY_F5,          # weight -10
+                    curses.KEY_F6,          # weight -1
+                    curses.KEY_F7,          # weight +1
+                    curses.KEY_F8,          # weight +10
+                    curses.KEY_F9,          # enable server
+                    curses.KEY_F10,         # disable server
+            ):
                 if screen.data.socket.ro:
                     continue
                 if not screen.cstat:
+                    continue
+
+                if c == curses.KEY_ENTER or c == chr(curses.ascii.CR):
+                    screen.hotkeys = True
+                    update_display = True
                     continue
 
                 iid = screen.cstat['iid']
@@ -2052,15 +2098,15 @@ def mainloop(screen, interval):
                 screen.cli.putc(chr(c))
 
         # Force screen update with existing data if key was a movement key
-        if c in [
+        if c in (
             curses.KEY_UP,
             curses.KEY_DOWN,
             curses.KEY_PPAGE,
             curses.KEY_NPAGE,
-        ] or screen.mid != 5 and c in [
+        ) or screen.mid != 5 and c in (
             curses.ascii.SOH, curses.KEY_HOME,
             curses.ascii.ENQ, curses.KEY_END,
-        ]:
+        ):
             update_display = True
 
         time.sleep(scan)
