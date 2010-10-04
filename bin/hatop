@@ -1931,61 +1931,69 @@ def mainloop(screen, interval):
                     curses.KEY_F8,
                     curses.KEY_F9,
                     curses.KEY_F10,
-            ] and not screen.data.socket.ro and screen.cstat:
+            ]:
+                if screen.data.socket.ro:
+                    continue
+                if not screen.cstat:
+                    continue
 
                 iid = screen.cstat['iid']
                 sid = screen.cstat['sid']
 
+                if iid <= 0 or sid <= 0:
+                    continue
+
                 notify = False
 
-                if c == ' ' and iid > 0 and sid > 0:
+                if c == ' ':
                     if screen.cli.puts('#%d/#%d' % (iid, sid)):
                         screen.switch_mode(5)
                         update_display = True
                         continue
                 elif c == curses.KEY_F4:
-                    if iid > 0 and sid > 0:
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d 100%%' % (iid, sid))
-                        notify = True
+                    screen.cli.execute_cmdline(
+                            'set weight #%d/#%d 100%%' % (iid, sid))
+                    notify = True
                 elif c == curses.KEY_F5:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight > 0:
-                        weight = max(0, curweight - 10)             # - 10
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight <= 0:
+                        continue
+                    weight = max(0, curweight - 10)             # - 10
+                    screen.cli.execute_cmdline(
+                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                    notify = True
                 elif c == curses.KEY_F6:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight > 0:
-                        weight = max(0, curweight - 1)              # - 1
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight <= 0:
+                        continue
+                    weight = max(0, curweight - 1)              # - 1
+                    screen.cli.execute_cmdline(
+                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                    notify = True
                 elif c == curses.KEY_F7:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight < 256:
-                        weight = min(256, curweight + 1)            # + 1
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight >= 256:
+                        continue
+                    weight = min(256, curweight + 1)            # + 1
+                    screen.cli.execute_cmdline(
+                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                    notify = True
                 elif c == curses.KEY_F8:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight < 256:
-                        weight = min(256, curweight + 10)           # + 10
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight >= 256:
+                        continue
+                    weight = min(256, curweight + 10)           # + 10
+                    screen.cli.execute_cmdline(
+                            'set weight #%d/#%d %d' % (iid, sid, weight))
+                    notify = True
                 elif c == curses.KEY_F9:
-                    if iid > 0 and sid > 0:
-                        screen.cli.execute_cmdline(
-                                'enable server #%d/#%d' % (iid, sid))
-                        notify = True
+                    screen.cli.execute_cmdline(
+                            'enable server #%d/#%d' % (iid, sid))
+                    notify = True
                 elif c == curses.KEY_F10:
-                    if iid > 0 and sid > 0:
-                        screen.cli.execute_cmdline(
-                                'disable server #%d/#%d' % (iid, sid))
-                        notify = True
+                    screen.cli.execute_cmdline(
+                            'disable server #%d/#%d' % (iid, sid))
+                    notify = True
 
                 # Refresh the screen indicating pending changes...
                 if notify:
