@@ -19,11 +19,15 @@ if not len(sys.argv) == 3:
             '<path to stat sample>\n' % sys.argv[0])
     sys.exit(1)
 
-with file(sys.argv[1]) as info:
-    data_info = info.read()
+def read_info():
+    with file(sys.argv[1]) as info:
+        data = info.read()
+    return data
 
-with file(sys.argv[2]) as stat:
-    data_stat = stat.read()
+def read_stat():
+    with file(sys.argv[2]) as stat:
+        data = stat.read()
+    return data
 
 try:
     os.unlink(SOCKET_PATH)
@@ -47,10 +51,10 @@ while 1:
             break
         elif data.startswith('show info'):
             print('>>> info...')
-            conn.sendall(data_info)
+            conn.sendall(read_info())
         elif data.startswith('show stat'):
             print('>>> stat...')
-            conn.sendall(data_stat)
+            conn.sendall(read_stat())
         print('>>> empty line (end of response)')
         conn.sendall('\n')
         print('>>> prompt')
