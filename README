@@ -110,8 +110,12 @@ You can scroll the stat views using ``UP / DOWN / PGUP / PGDOWN / HOME / END``.
 The reverse colored cursor line is used to select a given service instance.
 
 An unique identifier ``[IID=<proxy id> SID=<service id>]`` of the selected
-service is displayed bottom right. You can hit ``SPACE`` to copy and paste the
-identifier to the CLI for easy re-use with some commands. For example:
+service is displayed bottom right.
+
+You can hit ``SPACE`` to copy and paste the identifier in string format
+``pxname/svname`` to the CLI for easy re-use with some commands.
+
+For example:
 
 1. Open the CLI
 2. Type "disable server "
@@ -121,7 +125,7 @@ identifier to the CLI for easy re-use with some commands. For example:
 
 The result is this command line::
 
-    > disable server #<iid>/#<sid>
+    > disable server <pxname>/<svname>
 
 Hotkeys for common administrative actions
 -----------------------------------------
