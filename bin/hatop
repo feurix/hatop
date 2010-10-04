@@ -1239,6 +1239,8 @@ class Screen:
                 attr = line.attr
             if not line.stat:
                 screenline = get_cell(self.xmax, 'L', line.text)
+            elif 'message' in line.stat:
+                screenline = get_cell(self.xmax, 'L', line.stat['message'])
             else:
                 screenline = get_screenline(self.mode, line.stat)
             self.addstr(self.smin + idx, self.xmin, screenline, attr)
@@ -2053,7 +2055,7 @@ def mainloop(screen, interval):
 
                 # Refresh the screen indicating pending changes...
                 if notify:
-                    screen.cstat['svname'] = 'updating...'
+                    screen.cstat['message'] = 'updating...'
                     update_display = True
                     continue
 
