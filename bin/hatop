@@ -1606,7 +1606,7 @@ def parse_stat(iterable):
         if line.count(HAPROXY_STAT_SEP) < HAPROXY_STAT_NUMFIELDS:
             continue # unknown format
 
-        csv = line.split(HAPROXY_STAT_SEP)
+        csv = line.split(HAPROXY_STAT_SEP, HAPROXY_STAT_NUMFIELDS)
 
         # Skip further parsing?
         if svcount > HAPROXY_STAT_MAX_SERVICES:
