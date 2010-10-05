@@ -16,6 +16,8 @@ of hatop (using keybinds or the CLI) and monitor the results immediately.
 
 HATop uses a unix domain socket to communicate with HAProxy.  This can be
 configured in the HAProxy configuration using the "stats socket" option.
+To enable all of HATop's features the "level" parameter of this option
+should be set to "admin".
 .SH OPTIONS
 .TP
 \fB\-\-version\fP
@@ -63,6 +65,9 @@ Switch to mode n, where n is the numeric mode id
 .TP
 \fBESC\fP
 Jump to previous mode
+.TP
+\fBENTER\fP
+Display hotkey menu for selected service
 .TP
 \fBSPACE\fP
 Copy and paste selected service identifier to the CLI

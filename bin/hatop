@@ -57,14 +57,15 @@ SHIFT-TAB       Cycle mode backwards
 ALT-n / ESC-n   Switch to mode n, where n is the numeric mode id
 ESC-ESC         Jump to previous mode
 
+ENTER           Display hotkey menu for selected service
 SPACE           Copy and paste selected service identifier to the CLI
 
 You can scroll the stat views using UP / DOWN / PGUP / PGDOWN / HOME / END.
 
 The reverse colored cursor line is used to select a given service instance.
 
-An unique identifier [IID=<proxy id> SID=<service id>] of the selected
-service is displayed bottom right.
+An unique identifier [#<iid>/<#sid>] of the selected service is displayed
+bottom right.
 
 You can hit SPACE to copy and paste the identifier in string format
 "pxname/svname" to the CLI for easy re-use with some commands.
@@ -73,8 +74,8 @@ For example:
 
 1) Open the CLI
 2) Type "disable server "
-3) Switch back to some stat view
-4) Select the server instance
+3) Switch back to some stat view using TAB / SHIFT-TAB
+4) Select the server instance using UP / DOWN
 5) Hit SPACE
 
 The result is this command line:
