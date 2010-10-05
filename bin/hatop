@@ -833,6 +833,7 @@ class ScreenCLI:
             for cmd in cmds:
                 if re.match(r'^\s*%s(?:\s|$)' % pattern, cmd):
                     self.obuf.append('* command not allowed: %s' % cmd)
+                    self.obuf.append('')
                     self.update_screenlines()
                     self.draw_output()
                     self.refresh_output(sync=True)
