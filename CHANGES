@@ -14,6 +14,28 @@ HATop 0.7
 This is the first public series after reaching a feature complete state.
 
 
+HATop 0.7.7
+-----------
+
+:Date: Oct 05, 2010
+
+- Feature: Display hotkey footer when pressing ENTER on selected service.
+
+- Feature: Use string identifier ("pxname/svname") instead of numerical
+  identifier ("#iid/#sid") for hotkey actions.
+
+- Bugfix: Display cursor and focus input if started in CLI mode.
+
+- Bugfix: Reload stat data if number of proxies or services has changed.
+
+- Bugfix: Prevent infinite size sync if screen size is larger than supported.
+  (Jérémy Bonnet)
+
+- Docs: Add notes to INSTALL for the man page. (James Briggs)
+
+- Docs: Fix hatop(1) man page and document the new hotkey footer.
+
+
 HATop 0.7.6
 -----------
 
