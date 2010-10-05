@@ -1223,8 +1223,12 @@ class Screen:
             xpos += len(s)
 
         if 0 < self.mid < 5 and self.cstat:
-            s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (
-                    self.cstat['iid'], self.cstat['sid'])
+            if self.cstat['iid'] > 0 and self.cstat['sid'] > 0:
+                s = 'ENTER=MENU SPACE=SEL [#%d/#%d]' % (
+                        self.cstat['iid'], self.cstat['sid'])
+            else:
+                s = '[#%d/#%d]' % (
+                        self.cstat['iid'], self.cstat['sid'])
         elif self.mid == 5:
             s = 'PGUP/PGDOWN=SCROLL'
         else:
