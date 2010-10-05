@@ -1,3 +1,9 @@
+hatop (0.7.7-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- John Feuerstein <john@feurix.com>  Tue, 05 Oct 2010 17:21:11 +0000
+
 hatop (0.7.6-1) unstable; urgency=low
 
   * Initial release (Closes: #593496)
