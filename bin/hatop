@@ -891,7 +891,7 @@ class Screen:
 
         # Toggled by the SIGWINCH handler...
         # Note: Defaults to true to force the initial size sync.
-        self.resize_toggle = True
+        self._resized = True
 
         # Display given exceptions on screen
         self.exceptions = []
@@ -903,7 +903,7 @@ class Screen:
         self.hotkeys = False
 
     def _sigwinchhandler(self, signum, frame):
-        self.resize_toggle = True
+        self._resized = True
 
     @property
     def resized(self):
@@ -911,7 +911,7 @@ class Screen:
             ymax, xmax = self.getmaxyx()
             return ymax != self.ymax or xmax != self.xmax
         else:
-            return self.resize_toggle
+            return self._resized
 
     @property
     def mid(self):
@@ -1003,7 +1003,7 @@ class Screen:
                     'screen too small, need at least %dx%d'
                     % (SCREEN_XMIN, SCREEN_YMIN))
         if ymax == self.ymax and xmax == self.xmax:
-            self.resize_toggle = False
+            self._resized = False
             return
         if xmax != self.xmax:
             self.xmax = xmax
@@ -1017,7 +1017,7 @@ class Screen:
             self.cli.update_screenlines()
             self.cli.draw_output()
 
-        self.resize_toggle = False
+        self._resized = False
 
     def reset(self):
         if not self.active:
