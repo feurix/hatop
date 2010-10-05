@@ -226,23 +226,6 @@ CLI_INPUT_DENY_CMD = ['prompt', 'set timeout cli', 'quit']
 
 # Note: Only the last 3 lines are visible instantly on 80x25
 CLI_HELP_TEXT = '''\
-                             Keybind Reference
-
- .--------------------------------------------------------------------------.
- | Key                 Action                                               |
- |--------------------------------------------------------------------------|
- | ALT-n / ESC-n       escape the shell and display given viewport          |
- |--------------------------------------------------------------------------|
- | ENTER               execute cmdline or display marker if input empty     |
- |--------------------------------------------------------------------------|
- | UP / DOWN           scroll input history up or down                      |
- | LEFT / RIGHT        move input cursor one character to the left or right |
- | HOME / END          move input cursor to the beginning or end of line    |
- | BACKSPACE / DEL     delete one character backwards or forwards           |
- |--------------------------------------------------------------------------|
- | PGUP / PGDOWN       scroll output history up or down                     |
- `--------------------------------------------------------------------------'
-
              Welcome on the embedded interactive HAProxy shell!
 
                   Type `help' to get a command reference
