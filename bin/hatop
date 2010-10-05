@@ -57,25 +57,30 @@ SHIFT-TAB       Cycle mode backwards
 ALT-n / ESC-n   Switch to mode n, where n is the numeric mode id
 ESC-ESC         Jump to previous mode
 
+ENTER           Display hotkey menu for selected service
 SPACE           Copy and paste selected service identifier to the CLI
 
 You can scroll the stat views using UP / DOWN / PGUP / PGDOWN / HOME / END.
 
 The reverse colored cursor line is used to select a given service instance.
 
-An unique identifier [IID=<proxy id> SID=<service id>] of the selected
-service is displayed bottom right. You can hit SPACE to copy and paste the
-identifier to the CLI for easy re-use with some commands. For example:
+An unique identifier [#<iid>/<#sid>] of the selected service is displayed
+bottom right.
+
+You can hit SPACE to copy and paste the identifier in string format
+"pxname/svname" to the CLI for easy re-use with some commands.
+
+For example:
 
 1) Open the CLI
 2) Type "disable server "
-3) Switch back to some stat view
-4) Select the server instance
+3) Switch back to some stat view using TAB / SHIFT-TAB
+4) Select the server instance using UP / DOWN
 5) Hit SPACE
 
 The result is this command line:
 
-    > disable server #<iid>/#<sid>
+    > disable server <pxname>/<svname>
 
 Some common administrative actions have hotkeys:
 
@@ -180,7 +185,7 @@ L7STS       layer 7 response error, for example HTTP 5xx
 __author__    = 'John Feuerstein <john@feurix.com>'
 __copyright__ = 'Copyright (C) 2010 %s' % __author__
 __license__   = 'GNU GPLv3'
-__version__   = '0.7.6'
+__version__   = '0.7.7'
 
 import fcntl
 import os
@@ -222,23 +227,6 @@ CLI_INPUT_DENY_CMD = ['prompt', 'set timeout cli', 'quit']
 
 # Note: Only the last 3 lines are visible instantly on 80x25
 CLI_HELP_TEXT = '''\
-                             Keybind Reference
-
- .--------------------------------------------------------------------------.
- | Key                 Action                                               |
- |--------------------------------------------------------------------------|
- | ALT-n / ESC-n       escape the shell and display given viewport          |
- |--------------------------------------------------------------------------|
- | ENTER               execute cmdline or display marker if input empty     |
- |--------------------------------------------------------------------------|
- | UP / DOWN           scroll input history up or down                      |
- | LEFT / RIGHT        move input cursor one character to the left or right |
- | HOME / END          move input cursor to the beginning or end of line    |
- | BACKSPACE / DEL     delete one character backwards or forwards           |
- |--------------------------------------------------------------------------|
- | PGUP / PGDOWN       scroll output history up or down                     |
- `--------------------------------------------------------------------------'
-
              Welcome on the embedded interactive HAProxy shell!
 
                   Type `help' to get a command reference
@@ -248,7 +236,7 @@ CLI_HELP_TEXT = '''\
 SCREEN_XMIN = 78
 SCREEN_YMIN = 20
 SCREEN_XMAX = 200
-SCREEN_YMAX = 200
+SCREEN_YMAX = 100
 SCREEN_HPOS = 11
 
 HAPROXY_INFO_RE = {
@@ -535,27 +523,53 @@ class SocketData:
         self.info = parse_info(iterable)
 
     def update_stat(self):
+        # Store current data
+        pxcount_old = self.pxcount
+        svcount_old = self.svcount
+        stat_old = self.stat
+
+        # Reset current data
+        self.pxcount = 0
+        self.svcount = 0
+        self.stat = {}
+
         if self._filters:
-            self.pxcount = 0
-            self.svcount = 0
-            self.stat = {}
             for filter in self._filters:
                 self.socket.send('show stat %d %d %d' % filter)
-                stat, pxcount, svcount = parse_stat(self.socket.recv())
+                filter_stat, filter_pxcount, filter_svcount = \
+                        parse_stat(self.socket.recv())
 
-                if pxcount == 0:
+                if filter_pxcount == 0:
                     raise RuntimeError('stale stat filter: %d %d %d' % filter)
 
-                self.pxcount += pxcount
-                self.svcount += svcount
-                self.stat.update(stat)
+                self.pxcount += filter_pxcount
+                self.svcount += filter_svcount
+                self.stat.update(filter_stat)
         else:
             self.socket.send('show stat')
             self.stat, self.pxcount, self.svcount = \
                     parse_stat(self.socket.recv())
 
         if self.pxcount == 0:
-            raise RuntimeError('no proxy service stats available')
+            raise RuntimeWarning('no stat data available')
+
+        # Warn if the HAProxy configuration has changed on-the-fly
+        pxdiff = 0
+        svdiff = 0
+
+        if self.pxcount < pxcount_old:
+            pxdiff -= pxcount_old - self.pxcount
+        if pxcount_old > 0 and self.pxcount > pxcount_old:
+            pxdiff += self.pxcount - pxcount_old
+        if self.svcount < svcount_old:
+            svdiff -= svcount_old - self.svcount
+        if svcount_old > 0 and self.svcount > svcount_old:
+            svdiff += self.svcount - svcount_old
+
+        if pxdiff != 0 or svdiff != 0:
+            raise RuntimeWarning(
+                    'config changed: proxy %+d, service %+d '
+                    '(reloading...)' % (pxdiff, svdiff))
 
 
 class ScreenCLI:
@@ -770,7 +784,7 @@ class ScreenCLI:
             return
 
         # Move LEFT
-        elif n < 0:
+        if n < 0:
             self.ibpos = max(0, self.ibpos + n)
             if self.ibpos < self.ibmin:
                 self.ibmin = self.ibpos
@@ -790,7 +804,7 @@ class ScreenCLI:
             return
 
         # Move UP
-        elif n < 0 and self.ypos > self.ospan:
+        if n < 0 and self.ypos > self.ospan:
             self.ypos = max(self.ospan, self.ypos + n)
 
         # Move DOWN
@@ -820,6 +834,7 @@ class ScreenCLI:
             for cmd in cmds:
                 if re.match(r'^\s*%s(?:\s|$)' % pattern, cmd):
                     self.obuf.append('* command not allowed: %s' % cmd)
+                    self.obuf.append('')
                     self.update_screenlines()
                     self.draw_output()
                     self.refresh_output(sync=True)
@@ -876,18 +891,27 @@ class Screen:
 
         # Toggled by the SIGWINCH handler...
         # Note: Defaults to true to force the initial size sync.
-        self.resize_toggle = True
+        self._resized = True
+
+        # Display given exceptions on screen
+        self.exceptions = []
+
+        # Show cursor line?
+        self.cursor = True
+
+        # Show hotkeys?
+        self.hotkeys = False
 
     def _sigwinchhandler(self, signum, frame):
-        self.resize_toggle = True
+        self._resized = True
 
     @property
     def resized(self):
         if self.dumbtty:
-            ymax, xmax = self.screen.getmaxyx()
+            ymax, xmax = self.getmaxyx()
             return ymax != self.ymax or xmax != self.xmax
         else:
-            return self.resize_toggle
+            return self._resized
 
     @property
     def mid(self):
@@ -927,11 +951,11 @@ class Screen:
 
     @property
     def vmax(self):
-        return self.vmin + self.cmax + 1
+        return min(self.vmin + self.span, len(self.lines) - 1)
 
     @property
     def screenlines(self):
-        return enumerate(self.lines[self.vmin:self.vmax])
+        return enumerate(self.lines[self.vmin:self.vmax + 1])
 
     # Proxies
     def getch(self, *args, **kwargs):
@@ -959,6 +983,12 @@ class Screen:
         # If we came this far the display is active
         self.active = True
 
+    def getmaxyx(self):
+        ymax, xmax = self.screen.getmaxyx()
+        xmax = min(xmax, SCREEN_XMAX)
+        ymax = min(ymax, SCREEN_YMAX)
+        return ymax, xmax
+
     def resize(self):
         if not self.dumbtty:
             self.clear()
@@ -966,19 +996,19 @@ class Screen:
             size = struct.unpack('4H', size)
             curses.resize_term(size[0], size[1])
 
-        ymax, xmax = self.screen.getmaxyx()
+        ymax, xmax = self.getmaxyx()
 
         if xmax < SCREEN_XMIN or ymax < SCREEN_YMIN:
             raise RuntimeError(
                     'screen too small, need at least %dx%d'
                     % (SCREEN_XMIN, SCREEN_YMIN))
         if ymax == self.ymax and xmax == self.xmax:
-            self.resize_toggle = False
+            self._resized = False
             return
         if xmax != self.xmax:
-            self.xmax = min(xmax, SCREEN_XMAX)
+            self.xmax = xmax
         if ymax != self.ymax:
-            self.ymax = min(ymax, SCREEN_YMAX)
+            self.ymax = ymax
 
         self.mode.sync(self)
 
@@ -987,7 +1017,7 @@ class Screen:
             self.cli.update_screenlines()
             self.cli.draw_output()
 
-        self.resize_toggle = False
+        self._resized = False
 
     def reset(self):
         if not self.active:
@@ -1055,7 +1085,10 @@ class Screen:
 
     def update_data(self):
         self.data.update_info()
-        self.data.update_stat()
+        try:
+            self.data.update_stat()
+        except RuntimeWarning, x:
+            self.exceptions.append(x)
 
     def update_bars(self):
         self.sb_conn.update_max(int(self.data.info['maxconn'], 10))
@@ -1064,11 +1097,28 @@ class Screen:
         self.sb_pipe.update_cur(int(self.data.info['curpipes'], 10))
 
     def update_lines(self):
+        # Display non-fatal exceptions on screen
+        if self.exceptions:
+            self.mvhome()
+            self.lines = []
+            self.cursor = False
+            for x in self.exceptions:
+                for line in str(x).splitlines():
+                    line = line.center(SCREEN_XMIN)
+                    self.lines.append(ScreenLine(text=line))
+            self.exceptions = []
+            return
+
+        # Reset cursor visibility
+        if not self.cursor:
+            self.cursor = True
+
+        # Update screen lines
         self.lines = get_screenlines(self.data.stat)
         if self.data.svcount >= HAPROXY_STAT_MAX_SERVICES:
+            self.lines.append(ScreenLine())
             for line in HAPROXY_STAT_LIMIT_WARNING.splitlines():
                 self.lines.append(ScreenLine(text=line))
-            self.lines.append(ScreenLine())
 
     def draw_line(self, ypos, xpos=0, text=None,
             attr=curses.A_REVERSE):
@@ -1082,7 +1132,7 @@ class Screen:
         self.addstr(self.ymin, self.xmin,
                 time.ctime().rjust(self.xmax - 1), attr)
         self.addstr(self.ymin, self.xmin + 1,
-                'hatop version ' + __version__, attr)
+                'HATop version ' + __version__, attr)
 
     def draw_info(self):
         self.addstr(self.ymin + 2, self.xmin + 2,
@@ -1126,6 +1176,23 @@ class Screen:
         attr_active = curses.A_BOLD
         attr_inactive = curses.A_BOLD | curses.A_REVERSE
 
+        # HOTKEYS
+        if (self.hotkeys and
+                0 < self.mid < 5 and
+                self.cstat and
+                self.cstat['iid'] > 0 and
+                self.cstat['sid'] > 0):
+                self.draw_line(ypos)
+                self.addstr(ypos, 1, 'HOTKEYS:',
+                        curses.A_BOLD | curses.A_REVERSE)
+                self.addstr(ypos, 11,
+                        'F4=W-RESET  '
+                        'F5=W-10  F6=W-1  F7=W+1  F8=W+10  '
+                        'F9=ENABLE  F10=DISABLE',
+                        curses.A_NORMAL | curses.A_REVERSE)
+                return
+
+        # VIEWPORTS
         for mid, mode in enumerate(self.modes):
             if mid == 0:
                 continue
@@ -1141,8 +1208,20 @@ class Screen:
             xpos += len(s)
 
         if 0 < self.mid < 5 and self.cstat:
-            s = '[IID: %d SID: %d] H=HELP Q=QUIT' % (
-                    self.cstat['iid'], self.cstat['sid'])
+            if self.cstat['iid'] > 0 and self.cstat['sid'] > 0:
+                if self.data.socket.ro:
+                    s = 'READ-ONLY [#%d/#%d]' % (
+                            self.cstat['iid'], self.cstat['sid'])
+                else:
+                    s = 'ENTER=MENU SPACE=SEL [#%d/#%d]' % (
+                            self.cstat['iid'], self.cstat['sid'])
+            else:
+                if self.data.socket.ro:
+                    s = 'READ-ONLY [#%d/#%d]' % (
+                            self.cstat['iid'], self.cstat['sid'])
+                else:
+                    s = '[#%d/#%d]' % (
+                            self.cstat['iid'], self.cstat['sid'])
         elif self.mid == 5:
             s = 'PGUP/PGDOWN=SCROLL'
         else:
@@ -1151,12 +1230,14 @@ class Screen:
 
     def draw_stat(self):
         for idx, line in self.screenlines:
-            if idx == self.cpos:
+            if self.cursor and idx == self.cpos:
                 attr = line.attr | curses.A_REVERSE
             else:
                 attr = line.attr
             if not line.stat:
                 screenline = get_cell(self.xmax, 'L', line.text)
+            elif 'message' in line.stat:
+                screenline = get_cell(self.xmax, 'L', line.stat['message'])
             else:
                 screenline = get_screenline(self.mode, line.stat)
             self.addstr(self.smin + idx, self.xmin, screenline, attr)
@@ -1164,8 +1245,52 @@ class Screen:
     def draw_mode(self):
         if self.mid == 0:
             self.help.draw()
-        elif self.mid != 5:
+        elif self.mid == 5 and self._pmid == self._cmid:
+            self.cli.start() # initial mid was 5
+        elif 0 < self.mid < 5:
             self.draw_stat()
+
+    def mvc(self, n):
+        if n == 0:
+            return
+
+        # Move DOWN
+        if n > 0:
+            # move cursor
+            if self.cpos < self.cmax:
+                self.cpos = min(self.cmax, self.cpos + n)
+                return
+            # move screenlines
+            maxvmin = max(0, len(self.lines) - self.span - 1)
+            if self.cpos == self.cmax and self.vmin < maxvmin:
+                self.vmin = min(maxvmin, self.vmin + n)
+
+        # Move UP
+        elif n < 0: # UP
+            # move cursor
+            if self.cpos > self.cmin:
+                self.cpos = max(self.cmin, self.cpos + n)
+                return
+            # move screenlines
+            if self.cpos == self.cmin and self.vmin > 0:
+                self.vmin = max(0, self.vmin + n)
+
+    def mvhome(self):
+        # move cursor
+        if self.cpos != self.cmin:
+            self.cpos = self.cmin
+        # move screenlines
+        if self.vmin != 0:
+            self.vmin = 0
+
+    def mvend(self):
+        # move cursor
+        if self.cpos != self.cmax:
+            self.cpos = self.cmax
+        # move screenlines
+        maxvmin = max(0, len(self.lines) - self.span - 1)
+        if self.vmin != maxvmin:
+            self.vmin = maxvmin
 
 
 class ScreenHelp:
@@ -1193,6 +1318,24 @@ class ScreenHelp:
 
     def draw(self):
         self.addstr(0, 0, __doc__)
+
+    def mvc(self, n):
+        if n == 0:
+            return
+
+        # Move DOWN
+        if n > 0:
+            self.ypos = min(self.ymax - self.screen.span, self.ypos + n)
+
+        # Move UP
+        elif n < 0:
+            self.ypos = max(self.ymin, self.ypos + n)
+
+    def mvhome(self):
+        self.ypos = self.ymin
+
+    def mvend(self):
+        self.ypos = self.ymax - self.screen.span
 
 
 class ScreenMode:
@@ -1336,7 +1479,7 @@ SCREEN_MODES = [
 
 # Mode: HELP         name            header     xmin    xmax    align
 SCREEN_MODES[0].columns = [
-        ScreenColumn('help', ' hatop online help ',
+        ScreenColumn('help', ' HATop Online Help ',
                                          SCREEN_XMIN,      0,    'L'),
 ]
 
@@ -1461,15 +1604,27 @@ def parse_stat(iterable):
             continue
         if line.startswith(HAPROXY_STAT_COMMENT):
             continue # comment
-        if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
+        if line.count(HAPROXY_STAT_SEP) < HAPROXY_STAT_NUMFIELDS:
             continue # unknown format
 
-        csv = line.split(HAPROXY_STAT_SEP)
+        csv = line.split(HAPROXY_STAT_SEP, HAPROXY_STAT_NUMFIELDS)
 
         # Skip further parsing?
         if svcount > HAPROXY_STAT_MAX_SERVICES:
-            iid = int(csv[idx_iid], 10)
-            sid = int(csv[idx_sid], 10)
+            try:
+                iid = csv[idx_iid]
+                iid = int(iid, 10)
+            except ValueError:
+                raise RuntimeError(
+                        'garbage proxy identifier: iid="%s" (need %s)' %
+                        (iid, int))
+            try:
+                sid = csv[idx_sid]
+                sid = int(sid, 10)
+            except ValueError:
+                raise RuntimeError(
+                        'garbage service identifier: sid="%s" (need %s)' %
+                        (sid, int))
             if iid not in pxstat:
                 pxcount += 1
                 svcount += 1
@@ -1607,6 +1762,10 @@ def get_screenlines(stat):
         screenlines += lines
         screenlines.append(ScreenLine())
 
+    # remove trailing empty line
+    if len(screenlines) > 1:
+        screenlines.pop()
+
     return screenlines
 
 def get_screenline(mode, stat):
@@ -1720,6 +1879,25 @@ def mainloop(screen, interval):
             i += 1
             continue
 
+        # Toggle hotkey footer
+        if screen.hotkeys:
+            if c not in (
+                    curses.KEY_F4,          # reset weight
+                    curses.KEY_F5,          # weight -10
+                    curses.KEY_F6,          # weight -1
+                    curses.KEY_F7,          # weight +1
+                    curses.KEY_F8,          # weight +10
+                    curses.KEY_F9,          # enable server
+                    curses.KEY_F10,         # disable server
+            ):
+                screen.hotkeys = False
+                update_display = True
+            if c in (
+                    curses.KEY_ENTER,
+                    curses.ascii.CR
+            ):
+                continue
+
         if c == curses.ascii.ETX:
             raise KeyboardInterrupt()
 
@@ -1768,128 +1946,127 @@ def mainloop(screen, interval):
         # -> HELP
         if screen.mid == 0:
             if c == curses.KEY_UP and screen.help.ypos > 0:
-                screen.help.ypos -= 1
+                screen.help.mvc(-1)
             elif c == curses.KEY_DOWN and \
                     screen.help.ypos < screen.help.ymax - screen.span:
-                screen.help.ypos += 1
+                screen.help.mvc(1)
             elif c == curses.KEY_PPAGE and screen.help.ypos > 0:
-                screen.help.ypos = max(screen.help.ymin,
-                        screen.help.ypos - 10)
+                screen.help.mvc(-10)
             elif c == curses.KEY_NPAGE and \
                     screen.help.ypos < screen.help.ymax - screen.span:
-                screen.help.ypos = min(screen.help.ymax - screen.span,
-                        screen.help.ypos + 10)
+                screen.help.mvc(10)
             elif c == curses.ascii.SOH or c == curses.KEY_HOME:
-                screen.help.ypos = screen.help.ymin
+                screen.help.mvhome()
             elif c == curses.ascii.ENQ or c == curses.KEY_END:
-                screen.help.ypos = screen.help.ymax - screen.span
+                screen.help.mvend()
 
         # -> STATUS / TRAFFIC / HTTP / ERRORS
         elif 1 <= screen.mid <= 4:
 
             # movements
             if c == curses.KEY_UP:
-                if screen.cpos > screen.cmin:
-                    screen.cpos -= 1
-                if screen.cpos == screen.cmin and screen.vmin > 0:
-                    screen.vmin -= 1
+                screen.mvc(-1)
             elif c == curses.KEY_DOWN:
-                maxvmin = len(screen.lines) - screen.cmax - 2
-                if screen.cpos < screen.cmax:
-                    screen.cpos += 1
-                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                    screen.vmin += 1
+                screen.mvc(1)
             elif c == curses.KEY_PPAGE:
-                if screen.cpos > screen.cmin:
-                    screen.cpos = max(screen.cmin, screen.cpos - 10)
-                if screen.cpos == screen.cmin and screen.vmin > 0:
-                    screen.vmin = max(0, screen.vmin - 10)
+                screen.mvc(-10)
             elif c == curses.KEY_NPAGE:
-                maxvmin = len(screen.lines) - screen.cmax - 2
-                if screen.cpos < screen.cmax:
-                    screen.cpos = min(screen.cmax, screen.cpos + 10)
-                if screen.cpos == screen.cmax and screen.vmin < maxvmin:
-                    screen.vmin = min(maxvmin, screen.vmin + 10)
+                screen.mvc(10)
             elif c == curses.ascii.SOH or c == curses.KEY_HOME:
-                screen.cpos = screen.cmin
-                screen.vmin = 0
+                screen.mvhome()
             elif c == curses.ascii.ENQ or c == curses.KEY_END:
-                nlines = len(screen.lines)
-                screen.cpos = screen.cmax
-                if nlines > screen.span:
-                    screen.vmin = nlines - screen.cmax - 2
-                else:
-                    screen.vmin = screen.vmax - screen.cpos - 1
+                screen.mvend()
 
             # actions
-            elif c in [
-                    ' ',
-                    curses.KEY_F4,
-                    curses.KEY_F5,
-                    curses.KEY_F6,
-                    curses.KEY_F7,
-                    curses.KEY_F8,
-                    curses.KEY_F9,
-                    curses.KEY_F10,
-            ] and not screen.data.socket.ro and screen.cstat:
+            elif c in (
+                    curses.KEY_ENTER,       # show hotkeys
+                    chr(curses.ascii.CR),   # show hotkeys
+                    chr(curses.ascii.SP),   # copy & paste identifier
+                    curses.KEY_F4,          # reset weight
+                    curses.KEY_F5,          # weight -10
+                    curses.KEY_F6,          # weight -1
+                    curses.KEY_F7,          # weight +1
+                    curses.KEY_F8,          # weight +10
+                    curses.KEY_F9,          # enable server
+                    curses.KEY_F10,         # disable server
+            ):
+                if screen.data.socket.ro:
+                    continue
+                if not screen.cstat:
+                    continue
+
+                if c == curses.KEY_ENTER or c == chr(curses.ascii.CR):
+                    screen.hotkeys = True
+                    update_display = True
+                    continue
 
                 iid = screen.cstat['iid']
                 sid = screen.cstat['sid']
 
+                if iid <= 0 or sid <= 0:
+                    continue
+
+                pxname = screen.cstat['pxname']
+                svname = screen.cstat['svname']
+
+                if not pxname or not svname:
+                    continue
+
                 notify = False
 
-                if c == ' ' and iid > 0 and sid > 0:
-                    if screen.cli.puts('#%d/#%d' % (iid, sid)):
+                if c == ' ':
+                    if screen.cli.puts('%s/%s' % (pxname, svname)):
                         screen.switch_mode(5)
                         update_display = True
                         continue
                 elif c == curses.KEY_F4:
-                    if iid > 0 and sid > 0:
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d 100%%' % (iid, sid))
-                        notify = True
+                    screen.cli.execute_cmdline(
+                            'set weight %s/%s 100%%' % (pxname, svname))
+                    notify = True
                 elif c == curses.KEY_F5:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight > 0:
-                        weight = max(0, curweight - 10)             # - 10
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight <= 0:
+                        continue
+                    weight = max(0, curweight - 10)             # - 10
+                    screen.cli.execute_cmdline(
+                            'set weight %s/%s %d' % (pxname, svname, weight))
+                    notify = True
                 elif c == curses.KEY_F6:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight > 0:
-                        weight = max(0, curweight - 1)              # - 1
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight <= 0:
+                        continue
+                    weight = max(0, curweight - 1)              # - 1
+                    screen.cli.execute_cmdline(
+                            'set weight %s/%s %d' % (pxname, svname, weight))
+                    notify = True
                 elif c == curses.KEY_F7:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight < 256:
-                        weight = min(256, curweight + 1)            # + 1
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight >= 256:
+                        continue
+                    weight = min(256, curweight + 1)            # + 1
+                    screen.cli.execute_cmdline(
+                            'set weight %s/%s %d' % (pxname, svname, weight))
+                    notify = True
                 elif c == curses.KEY_F8:
                     curweight = screen.cstat['weight']
-                    if iid > 0 and sid > 0 and curweight < 256:
-                        weight = min(256, curweight + 10)           # + 10
-                        screen.cli.execute_cmdline(
-                                'set weight #%d/#%d %d' % (iid, sid, weight))
-                        notify = True
+                    if curweight >= 256:
+                        continue
+                    weight = min(256, curweight + 10)           # + 10
+                    screen.cli.execute_cmdline(
+                            'set weight %s/%s %d' % (pxname, svname, weight))
+                    notify = True
                 elif c == curses.KEY_F9:
-                    if iid > 0 and sid > 0:
-                        screen.cli.execute_cmdline(
-                                'enable server #%d/#%d' % (iid, sid))
-                        notify = True
+                    screen.cli.execute_cmdline(
+                            'enable server %s/%s' % (pxname, svname))
+                    notify = True
                 elif c == curses.KEY_F10:
-                    if iid > 0 and sid > 0:
-                        screen.cli.execute_cmdline(
-                                'disable server #%d/#%d' % (iid, sid))
-                        notify = True
+                    screen.cli.execute_cmdline(
+                            'disable server %s/%s' % (pxname, svname))
+                    notify = True
 
                 # Refresh the screen indicating pending changes...
                 if notify:
-                    screen.cstat['svname'] = 'updating...'
+                    screen.cstat['message'] = 'updating...'
                     update_display = True
                     continue
 
@@ -1934,15 +2111,15 @@ def mainloop(screen, interval):
                 screen.cli.putc(chr(c))
 
         # Force screen update with existing data if key was a movement key
-        if c in [
+        if c in (
             curses.KEY_UP,
             curses.KEY_DOWN,
             curses.KEY_PPAGE,
             curses.KEY_NPAGE,
-        ] or screen.mid != 5 and c in [
+        ) or screen.mid != 5 and c in (
             curses.ascii.SOH, curses.KEY_HOME,
             curses.ascii.ENQ, curses.KEY_END,
-        ]:
+        ):
             update_display = True
 
         time.sleep(scan)
@@ -1954,7 +2131,7 @@ if __name__ == '__main__':
     from optparse import OptionParser, OptionGroup
 
     version  = 'hatop version %s' % __version__
-    usage    = 'Usage: hatop [options]'
+    usage    = 'Usage: hatop -s SOCKET [OPTIONS]...'
 
     parser = OptionParser(usage=usage, version=version)
 
