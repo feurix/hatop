@@ -1610,8 +1610,20 @@ def parse_stat(iterable):
 
         # Skip further parsing?
         if svcount > HAPROXY_STAT_MAX_SERVICES:
-            iid = int(csv[idx_iid], 10)
-            sid = int(csv[idx_sid], 10)
+            try:
+                iid = csv[idx_iid]
+                iid = int(iid, 10)
+            except ValueError:
+                raise RuntimeError(
+                        'garbage proxy identifier: iid="%s" (need %s)' %
+                        (iid, int))
+            try:
+                sid = csv[idx_sid]
+                sid = int(sid, 10)
+            except ValueError:
+                raise RuntimeError(
+                        'garbage service identifier: sid="%s" (need %s)' %
+                        (sid, int))
             if iid not in pxstat:
                 pxcount += 1
                 svcount += 1
