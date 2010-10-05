@@ -1243,7 +1243,9 @@ class Screen:
     def draw_mode(self):
         if self.mid == 0:
             self.help.draw()
-        elif self.mid != 5:
+        elif self.mid == 5 and self._pmid == self._cmid:
+            self.cli.start() # initial mid was 5
+        elif 0 < self.mid < 5:
             self.draw_stat()
 
     def mvc(self, n):
