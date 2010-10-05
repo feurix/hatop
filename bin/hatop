@@ -1603,7 +1603,7 @@ def parse_stat(iterable):
             continue
         if line.startswith(HAPROXY_STAT_COMMENT):
             continue # comment
-        if line.count(HAPROXY_STAT_SEP) != HAPROXY_STAT_NUMFIELDS:
+        if line.count(HAPROXY_STAT_SEP) < HAPROXY_STAT_NUMFIELDS:
             continue # unknown format
 
         csv = line.split(HAPROXY_STAT_SEP)
