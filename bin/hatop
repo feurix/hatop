@@ -20,20 +20,8 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 '''\
-HATop is an interactive ncurses client for the HAProxy unix socket
-==================================================================
-
-HATop's appearance is similar to top(1). It supports various modes
-for detailed statistics of all configured proxies and services in near
-realtime. In addition, it features an interactive CLI for the haproxy
-unix socket. This allows administrators to control the given haproxy
-instance (change server weight, put servers into maintenance mode, ...)
-directly out of hatop and monitor the results immediately.
-
-Note: It is important to understand that when multiple haproxy processes
-      are started on the same socket, any process may pick up the request
-      and thus hatop will output stats owned solely by that process.
-      The current haproxy-internal process id is displayed top right.
+HATop is an interactive ncurses client for HAProxy
+==================================================
 
 Display mode reference:
 
@@ -64,24 +52,6 @@ You can scroll the stat views using UP / DOWN / PGUP / PGDOWN / HOME / END.
 
 The reverse colored cursor line is used to select a given service instance.
 
-An unique identifier [#<iid>/<#sid>] of the selected service is displayed
-bottom right.
-
-You can hit SPACE to copy and paste the identifier in string format
-"pxname/svname" to the CLI for easy re-use with some commands.
-
-For example:
-
-1) Open the CLI
-2) Type "disable server "
-3) Switch back to some stat view using TAB / SHIFT-TAB
-4) Select the server instance using UP / DOWN
-5) Hit SPACE
-
-The result is this command line:
-
-    > disable server <pxname>/<svname>
-
 Some common administrative actions have hotkeys:
 
 Hotkey      Action
@@ -98,8 +68,6 @@ F10         Disable server (put into maintenance mode)
 
 Hotkey actions and server responses are logged on the CLI viewport.
 You can scroll the output on the CLI view using PGUP / PGDOWN.
-A brief keybind reference is logged there directly after startup...
-
 
 Header reference:
 
