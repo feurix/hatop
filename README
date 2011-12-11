@@ -2,7 +2,7 @@
 Documentation
 *************
 
-*Interactive ncurses client for the HAProxy unix socket*
+*HATop is an interactive ncurses client for HAProxy*
 
     Author:  John Feuerstein <john@feurix.com>
 
@@ -17,6 +17,9 @@ Documentation
 
 What is HATop?
 ==============
+
+HATop is an interactive ncurses client and real-time monitoring,
+statistics displaying tool for the HAProxy TCP/HTTP load balancer.
 
 HATop's appearance is similar to top(1). It supports various modes
 for detailed statistics of all configured proxies and services in near
@@ -85,6 +88,7 @@ See also: :ref:`screenshots`
   3   HTTP    Display various statistical information related to HTTP
   4   ERRORS  Display health info, various error counters and downtimes
   5   CLI     Display embedded command line client for the unix socket
+
 
 Keybind reference
 =================
