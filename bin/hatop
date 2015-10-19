@@ -361,10 +361,14 @@ except TypeError:
 
 class Socket:
 
-    def __init__(self, path, readonly=False):
+    def __init__(self, path, readonly=False, tcp=False):
         self.path = path
         self.ro = readonly
-        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.tcp = tcp
+        if not self.tcp:
+            self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        else:
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def _recv(self):
         # socket.recv() wrapper raising SocketError if we receive
@@ -376,8 +380,12 @@ class Socket:
 
     def connect(self):
         # Initialize socket connection
-        self._socket.connect(self.path)
         self._socket.settimeout(HAPROXY_CLI_CMD_TIMEOUT)
+        if self.tcp:
+            host, port = self.path.split(":")
+            self._socket.connect((host, int(port)))
+        else:
+            self._socket.connect(self.path)
 
         # Enter the interactive socket mode. This requires HAProxy 1.4+ and
         # allows us to error out early if connected to an older version.
@@ -2099,13 +2107,15 @@ if __name__ == '__main__':
     from optparse import OptionParser, OptionGroup
 
     version  = 'hatop version %s' % __version__
-    usage    = 'Usage: hatop -s SOCKET [OPTIONS]...'
+    usage    = 'Usage: hatop (-s SOCKET| -t HOST:PORT) [OPTIONS]...'
 
     parser = OptionParser(usage=usage, version=version)
 
     opts = OptionGroup(parser, 'Mandatory')
     opts.add_option('-s', '--unix-socket', dest='socket',
-            help='path to the haproxy unix socket')
+            help='path to the haproxy unix stats socket')
+    opts.add_option('-t', '--tcp-socket', dest='tcp_socket',
+            help='address of the haproxy tcp stats socket')
     parser.add_option_group(opts)
 
     opts = OptionGroup(parser, 'Optional')
@@ -2141,14 +2151,22 @@ if __name__ == '__main__':
     if opts.ro and opts.mode == 5:
         log('cli not available in read-only mode')
         sys.exit(1)
-    if not opts.socket:
+    if opts.socket and opts.tcp_socket:
+        log('Specify either --unix-socket OR --tcp-socket')
+        parser.print_help()
+        sys.exit(1)
+    if not opts.socket and not opts.tcp_socket:
         parser.print_help()
         sys.exit(0)
-    if not os.access(opts.socket, os.R_OK | os.W_OK):
+    if opts.socket and not os.access(opts.socket, os.R_OK | os.W_OK):
         log('insufficient permissions for socket path %s' % opts.socket)
         sys.exit(2)
 
-    socket = Socket(opts.socket, opts.ro)
+    if opts.socket:
+        socket = Socket(opts.socket, opts.ro)
+    else:
+        socket = Socket(opts.tcp_socket, opts.ro, True)
+
     data = SocketData(socket)
     screen = Screen(data, opts.mode)
 
