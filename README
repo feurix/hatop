@@ -48,7 +48,7 @@ Invoking hatop without options or with ``-h / --help`` results in:
 ::
 
   $ hatop --help
-  Usage: hatop -s SOCKET [OPTIONS]...
+  Usage: hatop (-s SOCKET| -t HOST:PORT) [OPTIONS]...
 
   Options:
     --version             show program's version number and exit
@@ -57,6 +57,8 @@ Invoking hatop without options or with ``-h / --help`` results in:
     Mandatory:
       -s SOCKET, --unix-socket=SOCKET
                           path to the haproxy unix socket
+      -t TCP_SOCKET, --tcp-socket=TCP_SOCKET
+                          address of the haproxy tcp stats socket
 
     Optional:
       -i INTERVAL, --update-interval=INTERVAL
